@@ -50,6 +50,10 @@ OM-522-Fall-2026-in-class/
 │   │   ├── transcript.txt
 │   │   ├── ai-update-prompt.md
 │   │   └── TSP-demo/
+│   ├── 20260929/
+│   │   ├── README.md
+│   │   ├── clarke_wright.py
+│   │   └── routing_utils.py
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -139,6 +143,23 @@ pixi run test
 
 The [TSP guide](in-class-notebooks/TSP/README.md) describes the data and the
 general symmetric TSP represented by the instance.
+
+## Clarke–Wright savings demo
+
+The September 29 demo reuses the TSP store locations and road distances, adds
+simulated pallet demand and one hub store per state, and sets up a Marimo
+notebook for building the Clarke–Wright savings method in class. Run its
+commands from the `20260929` directory:
+
+```bash
+cd in-class-notebooks/20260929
+pixi install
+pixi run demo
+pixi run test
+```
+
+The [Clarke–Wright guide](in-class-notebooks/20260929/README.md) describes the
+simulated demand and the hub rule.
 
 ## Single-machine instance generation
 
