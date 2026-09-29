@@ -16,10 +16,6 @@ from matplotlib.figure import Figure
 from mpl_toolkits.basemap import Basemap
 
 
-Route = Sequence[str]
-DistanceLookup = Mapping[tuple[str, str], float]
-
-
 def _require_columns(
     dataframe: pl.DataFrame,
     required: Sequence[str],
@@ -32,7 +28,7 @@ def _require_columns(
         )
 
 
-def _validate_route(route: Route) -> list[str]:
+def _validate_route(route: Sequence[str]) -> list[str]:
     if isinstance(route, (str, bytes)):
         raise TypeError("A route must be a sequence of store IDs, not a string.")
 
@@ -42,14 +38,16 @@ def _validate_route(route: Route) -> list[str]:
     return values
 
 
-def _close_route(route: Route) -> list[str]:
+def _close_route(route: Sequence[str]) -> list[str]:
     values = _validate_route(route)
     if len(values) > 1 and values[-1] != values[0]:
         values.append(values[0])
     return values
 
 
-def _normalize_routes(routes: Route | Sequence[Route] | None) -> list[list[str]]:
+def _normalize_routes(
+    routes: Sequence[str] | Sequence[Sequence[str]] | None,
+) -> list[list[str]]:
     if routes is None:
         return []
     if isinstance(routes, (str, bytes)):
@@ -92,10 +90,23 @@ def build_distance_lookup(
     road_distances: pl.DataFrame,
     stores: Collection[str],
 ) -> dict[tuple[str, str], float]:
-    """Return ``{(origin, destination): miles}`` for every pair of ``stores``.
+    """Return a dictionary of road miles for every ordered pair of ``stores``.
 
     The lookup is checked for completeness and symmetry, because the TSP helper
     and the savings formula both assume that d(i, j) equals d(j, i).
+
+    Args:
+        road_distances: Distance table with columns ``store1``, ``store2``, and
+            ``distance_miles``.
+        stores: Store IDs to include in the lookup.
+
+    Returns:
+        dict[tuple[str, str], float]: Road miles keyed by ``(origin,
+            destination)``, e.g., ``distances[("L210", "L194")]``.
+
+    Raises:
+        ValueError: If a column is missing, a pair of stores has no distance,
+            or a distance differs between the two directions.
     """
     _require_columns(
         dataframe=road_distances,
@@ -133,8 +144,21 @@ def build_distance_lookup(
     return lookup
 
 
-def route_distance(route: Route, distances: DistanceLookup) -> float:
-    """Return the road miles of a route, including the return to its depot."""
+def route_distance(
+    route: Sequence[str],
+    distances: Mapping[tuple[str, str], float],
+) -> float:
+    """Return the road miles of a route, including the return to its depot.
+
+    Args:
+        route: Store IDs in visit order, starting with the depot, e.g.,
+            ``["L210", "L194", "L240"]``. Do not repeat the depot at the end.
+        distances: Road miles keyed by ``(origin, destination)``, as returned
+            by ``build_distance_lookup``.
+
+    Returns:
+        float: Total road miles, or 0.0 for a route with no stops.
+    """
     values = _validate_route(route)
     if len(values) < 2:
         return 0.0
@@ -144,14 +168,24 @@ def route_distance(route: Route, distances: DistanceLookup) -> float:
     )
 
 
-def route_load(route: Route, demand: Mapping[str, int]) -> int:
-    """Return the pallets delivered on a route. The depot adds no demand."""
+def route_load(
+    route: Sequence[str],
+    demand: Mapping[str, int],
+) -> int:
+    """Return the pallets delivered on a route. The depot adds no demand.
+
+    Args:
+        route: Store IDs in visit order, starting with the depot.
+        demand: Pallets ordered by each customer, keyed by store ID.
+
+    Returns:
+        int: Total pallets ordered by the customers on the route.
+    """
     return sum(demand[store_id] for store_id in _validate_route(route)[1:])
 
 
 def validate_routes(
-    routes: Sequence[Route],
-    *,
+    routes: Sequence[Sequence[str]],
     depots: Collection[str],
     customers: Collection[str],
     demand: Mapping[str, int],
@@ -161,7 +195,20 @@ def validate_routes(
 
     A feasible plan starts every route at a depot, never visits a depot
     mid-route, serves every customer exactly once, and keeps every route's load
-    within ``capacity``.
+    within ``capacity``. The function returns nothing when the plan is feasible.
+
+    Args:
+        routes: One route per truck, each a list of store IDs that starts with
+            its depot.
+        depots: Store IDs that may start a route.
+        customers: Store IDs that must each be served exactly once.
+        demand: Pallets ordered by each customer, keyed by store ID.
+        capacity: Most pallets one truck can carry.
+
+    Raises:
+        ValueError: If any route is empty, starts away from a depot, passes
+            through a depot, visits an unknown store, or exceeds
+            ``capacity``, or if any customer is unserved or served twice.
     """
     depot_set = set(depots)
     customer_set = set(customers)
@@ -198,12 +245,23 @@ def validate_routes(
 
 
 def summarize_routes(
-    routes: Sequence[Route],
-    *,
+    routes: Sequence[Sequence[str]],
     demand: Mapping[str, int],
-    distances: DistanceLookup,
+    distances: Mapping[tuple[str, str], float],
 ) -> pl.DataFrame:
-    """Return one row per route with its depot, stop count, load, and miles."""
+    """Return one row per route with its depot, stop count, load, and miles.
+
+    Args:
+        routes: One route per truck, each a list of store IDs that starts with
+            its depot.
+        demand: Pallets ordered by each customer, keyed by store ID.
+        distances: Road miles keyed by ``(origin, destination)``, as returned
+            by ``build_distance_lookup``.
+
+    Returns:
+        pl.DataFrame: Columns ``route``, ``depot``, ``stops``,
+            ``load_pallets``, and ``road_miles``.
+    """
     return pl.DataFrame(
         [
             {
@@ -228,7 +286,7 @@ def summarize_routes(
 def solve_tsp(
     depot: str,
     stops: Collection[str],
-    distances: DistanceLookup,
+    distances: Mapping[tuple[str, str], float],
 ) -> list[str]:
     """Sequence one vehicle's stops and return a route that starts at ``depot``.
 
@@ -238,6 +296,19 @@ def solve_tsp(
     remains. The reversal search checks every pair of positions rather than
     sampling, so the result is deterministic and 2-opt locally optimal. It is not
     guaranteed to be the shortest possible route.
+
+    Args:
+        depot: Store ID where the truck starts and ends.
+        stops: Customer store IDs the truck visits, in any order. Do not
+            include the depot.
+        distances: Road miles keyed by ``(origin, destination)``, as returned
+            by ``build_distance_lookup``.
+
+    Returns:
+        list[str]: The route in visit order, starting with ``depot``.
+
+    Raises:
+        ValueError: If ``depot`` appears in ``stops``.
     """
     nodes = sorted({depot, *stops})
     if depot in stops:
@@ -291,17 +362,29 @@ def solve_tsp(
 
 def plot_locations(
     locations: pl.DataFrame,
-    routes: Route | Sequence[Route] | None = None,
-    *,
+    routes: Sequence[str] | Sequence[Sequence[str]] | None = None,
     depots: Collection[str] = (),
     figsize: tuple[float, float] = (9, 7),
 ) -> tuple[Figure, Axes]:
     """Plot stores, depots, and optional closed routes over an offline map.
 
-    A flat list of store IDs is one route and a nested list is one route per
-    vehicle. Each route is numbered at the stop farthest from its first entry,
-    so the map stays readable when there are more routes than distinct colors.
-    ``depots`` are drawn as stars. ``figsize`` is the width and height in inches.
+    Each route is numbered at the stop farthest from its first entry, so the map
+    stays readable when there are more routes than distinct colors.
+
+    Args:
+        locations: Store table with columns ``store``, ``latitude``, and
+            ``longitude``.
+        routes: A flat list of store IDs for one route, a nested list for one
+            route per truck, or None to plot the stores only.
+        depots: Store IDs drawn as stars.
+        figsize: Figure width and height in inches.
+
+    Returns:
+        tuple[Figure, Axes]: The Matplotlib figure and axes.
+
+    Raises:
+        ValueError: If ``locations`` is incomplete or a route or depot names
+            a store that is not in ``locations``.
     """
     selected = _validated_locations(locations)
     normalized_routes = _normalize_routes(routes)

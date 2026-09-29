@@ -40,8 +40,6 @@ def _():
         route_load,
         sns,
         solve_tsp,
-        summarize_routes,
-        validate_routes,
     )
 
 
@@ -53,7 +51,7 @@ def _(mo):
     The TSP meetings built one tour through every store. Here a hub ships pallets
     to its stores with trucks of limited capacity, so the stores must be split
     into several routes, each starting and ending at the depot. The Clarke–Wright
-    savings method starts with one truck per store and repeatedly merges routes
+    savings method starts with one truck per customer and repeatedly merges routes
     whose combined load still fits on a truck.
     """)
     return
@@ -123,6 +121,7 @@ def _(
 def _(customers, demand, depots, mo, np, vehicle_capacity):
     _total_pallets = sum(demand.values())
     _minimum_trucks = int(np.ceil(_total_pallets / vehicle_capacity))
+
     mo.md(f"""
     The instance has **{len(customers)} customer stores** and
     **{len(depots)} depot{"s" if len(depots) > 1 else ""}**. Customers order
@@ -159,50 +158,48 @@ def _(mo):
     `["L210", "L194", "L240"]`. The return to the depot is implied, so the depot
     is never repeated at the end. `routing_utils.py` provides the following:
 
-    - `route_distance(route, distance_dict)` returns road miles, including the
+    - `route_distance(route, distances)` returns road miles, including the
       return leg.
     - `route_load(route, demand)` returns the pallets delivered on the route.
-    - `solve_tsp(depot, stops, distance_dict)` sequences one truck's stops with
+    - `solve_tsp(depot, stops, distances)` sequences one truck's stops with
       multistart Nearest Neighbor followed by subsequence reversal (2-opt), and
       returns a route that starts at the depot.
-    - `validate_routes(routes, depots=..., customers=..., demand=...,
-      capacity=...)` raises an error that lists every customer left unserved or
-      served twice, every route that passes through a depot, and every route
-      over capacity.
-    - `summarize_routes(routes, demand=..., distances=...)` returns one row per
-      route with its stops, load, and miles.
-    - `plot_locations(locations, routes, depots=...)` draws the routes and
-      numbers each one.
+    - `validate_routes(routes, depots, customers, demand, capacity)` raises an
+      error that lists every customer left unserved or served twice, every
+      route that passes through a depot, and every route over capacity.
+    - `summarize_routes(routes, demand, distances)` returns one row per route
+      with its stops, load, and miles.
+    - `plot_locations(locations, routes, depots)` draws the routes and numbers
+      each one.
 
-    For example, the cell below sequences the five customers closest to the
-    first depot as a single truck.
+    For example, the cell below sequences the five Georgia customers closest to
+    the Atlanta hub (L210) as a single truck. The store IDs are written out, so
+    the cell runs only when `selected_states` includes `"GA"`.
     """)
     return
 
 
 @app.cell
-def _(
-    customers,
-    demand,
-    depots,
-    distance_dict,
-    route_distance,
-    route_load,
-    solve_tsp,
-):
-    _depot = depots[0]
-    _nearest_five = sorted(
-        customers,
-        key=lambda store: distance_dict[(_depot, store)],
-    )[:5]
-    example_route = solve_tsp(
+def _(demand, distance_dict, route_distance, route_load, solve_tsp):
+    _depot = "L210"
+    _stops = ["L195", "L227", "L253", "L230", "L194"]
+    _example_route = solve_tsp(
         depot=_depot,
-        stops=_nearest_five,
+        stops=_stops,
         distances=distance_dict,
     )
-    print(example_route)
-    print(f"{route_distance(example_route, distance_dict):,.1f} road miles")
-    print(f"{route_load(example_route, demand)} pallets")
+    _distance = route_distance(
+        route=_example_route,
+        distances=distance_dict,
+    )
+    _route_load = route_load(
+        route=_example_route,
+        demand=demand,
+    )
+
+    print(_example_route)
+    print(f"{_distance:,.1f} road miles")
+    print(f"{_route_load} pallets")
     return
 
 
@@ -220,20 +217,43 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Step 1. One truck per customer
+    ## Setup
     """)
     return
 
 
 @app.cell
-def _():
+def _(customers, demand, depots, plt, sns, vehicle_capacity):
+    cw_depot = depots[0]
+    cw_customers = list(customers)
+    cw_capacity = vehicle_capacity
+
+    print(f" - {cw_depot = }")
+    print(f" - Number of customers: {len(cw_customers):,}")
+    print(f" - {cw_capacity = :,}")
+
+    _fig, _ax = plt.subplots(
+        nrows=1,
+        ncols=1,
+        figsize=(6, 4),
+    )
+    sns.histplot(
+        x=list(demand.values()),
+        edgecolor="k",
+        discrete=True,
+        stat="density",
+        ax=_ax,
+    )
+    _ax.set_title("Customer demand")
+    _ax.set_xlabel("Pallets ordered")
+    _fig
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Step 2. Savings list
+    ## Step 1. Savings
 
     $$s_{ij} = d_{0i} + d_{0j} - d_{ij}$$
     """)
@@ -248,7 +268,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Step 3. Merge routes in savings order
+    ## Step 2. Merge routes in savings order
     """)
     return
 
@@ -261,20 +281,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## Step 4. Check the routes and sequence each truck
-    """)
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Step 5. Compare the starting and final plans
+    ## Step 3. Check the routes and sequence each truck
     """)
     return
 
