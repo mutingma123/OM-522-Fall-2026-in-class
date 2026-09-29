@@ -114,7 +114,7 @@ def _(
         road_distances=all_road_distances,
         stores=locations.get_column("store").to_list(),
     )
-    return customers, demand, depots, distance_dict, hubs, locations
+    return customers, demand, depots, distance_dict, locations
 
 
 @app.cell(hide_code=True)
@@ -129,12 +129,6 @@ def _(customers, demand, depots, mo, np, vehicle_capacity):
     {max(demand.values())} each. With {vehicle_capacity} pallets per truck, any
     feasible plan needs at least **{_minimum_trucks} trucks**.
     """)
-    return
-
-
-@app.cell
-def _(hubs):
-    hubs
     return
 
 
@@ -247,7 +241,7 @@ def _(customers, demand, depots, plt, sns, vehicle_capacity):
     _ax.set_title("Customer demand")
     _ax.set_xlabel("Pallets ordered")
     _fig
-    return
+    return (cw_depot,)
 
 
 @app.cell(hide_code=True)
@@ -257,6 +251,66 @@ def _(mo):
 
     $$s_{ij} = d_{0i} + d_{0j} - d_{ij}$$
     """)
+    return
+
+
+@app.cell
+def _(customers, cw_depot, distance_dict, pl):
+    cluster2customer = {}
+    customer2cluster = {}
+    for _idx, _customer in enumerate(customers, start=1):
+        cluster2customer[f'C{_idx}'] = [_customer]
+        customer2cluster[_customer] = f'C{_idx}'
+
+
+    savings = []
+    for _i in customers:
+        for _j in customers:
+            if _i < _j:
+                _pair_savings = distance_dict[cw_depot, _i] + distance_dict[cw_depot, _j] - distance_dict[_i, _j]
+                savings.append({
+                    'customer1': _i,
+                    'customer2': _j,
+                    'savings': _pair_savings
+                })
+
+    savings = pl.DataFrame(
+        savings
+    ).sort(
+        by='savings',
+        descending=True,
+    ).to_dicts()
+    return cluster2customer, customer2cluster, savings
+
+
+@app.cell
+def _(cluster2customer, customer2cluster, demand, savings):
+    _entry = savings[0]
+    _customer1 = _entry.get('customer1')
+    _customer2 = _entry.get('customer2')
+
+    _cluster1 = customer2cluster[_customer1]
+    _cluster2 = customer2cluster[_customer2]
+
+    same_cluster = _cluster1 == _cluster2
+
+    if not same_cluster:
+        print('Not the same')
+        _cluster1_customers = cluster2customer[_cluster1]
+        _cluster2_customers = cluster2customer[_cluster2]
+
+    _all_customers = set(_cluster1_customers).union(set(_cluster2_customers))
+    sum(d for customer, d in demand.items() if customer in  _all_customers)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
     return
 
 
