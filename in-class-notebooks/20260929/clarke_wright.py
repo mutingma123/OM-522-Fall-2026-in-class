@@ -283,6 +283,14 @@ def _(customers, cw_depot, distance_dict, pl):
     return cluster2customer, customer2cluster, savings
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Step 2. Merge routes in savings order
+    """)
+    return
+
+
 @app.cell
 def _(cluster2customer, customer2cluster, demand, savings):
     _entry = savings[0]
@@ -306,24 +314,6 @@ def _(cluster2customer, customer2cluster, demand, savings):
 
 @app.cell
 def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Step 2. Merge routes in savings order
-    """)
     return
 
 
