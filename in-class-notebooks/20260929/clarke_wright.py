@@ -241,7 +241,7 @@ def _(customers, demand, depots, plt, sns, vehicle_capacity):
     _ax.set_title("Customer demand")
     _ax.set_xlabel("Pallets ordered")
     _fig
-    return (cw_depot,)
+    return cw_capacity, cw_depot
 
 
 @app.cell(hide_code=True)
@@ -292,33 +292,58 @@ def _(mo):
 
 
 @app.cell
-def _(cluster2customer, customer2cluster, demand, savings):
-    _entry = savings[0]
-    _customer1 = _entry.get('customer1')
-    _customer2 = _entry.get('customer2')
+def _(cluster2customer, customer2cluster, cw_capacity, demand, savings):
+    combinations_made = 0
+    for _entry in savings:
+        _customer1 = _entry.get('customer1')
+        _customer2 = _entry.get('customer2')
 
-    _cluster1 = customer2cluster[_customer1]
-    _cluster2 = customer2cluster[_customer2]
+        _cluster1 = customer2cluster[_customer1]
+        _cluster2 = customer2cluster[_customer2]
 
-    same_cluster = _cluster1 == _cluster2
+        same_cluster = (_cluster1 == _cluster2)
 
-    if not same_cluster:
-        print('Not the same')
-        _cluster1_customers = cluster2customer[_cluster1]
-        _cluster2_customers = cluster2customer[_cluster2]
+        if not same_cluster:
+            _cluster1_customers = cluster2customer[_cluster1]
+            _cluster2_customers = cluster2customer[_cluster2]
 
-    _all_customers = set(_cluster1_customers).union(set(_cluster2_customers))
-    sum(d for customer, d in demand.items() if customer in  _all_customers)
-    return
+            _all_customers = set(_cluster1_customers + _cluster2_customers)
+            _total_demand = sum([_demand for _customer, _demand in demand.items() if _customer in _all_customers])
+            if _total_demand <= cw_capacity:
+                print(f' - Combine {_cluster1} and {_cluster2}')
+                combinations_made += 1
+                cluster2customer[_cluster1].extend(cluster2customer[_cluster2])
+                cluster2customer[_cluster2] = None
+
+                for _customer in _cluster2_customers:
+                    customer2cluster[_customer] = _cluster1
+
+    print(f'{combinations_made:,} combinations made.')
+    final_clusters = {_cluster: _customer_list for _cluster, _customer_list in cluster2customer.items() if _customer_list}
+    return (final_clusters,)
 
 
 @app.cell
-def _():
-    return
+def _(cw_depot, distance_dict, final_clusters, solve_tsp):
+    all_routes = []
+    for _route in final_clusters.values():
+        _route_tsp = solve_tsp(
+            depot=cw_depot,
+            stops=_route,
+            distances=distance_dict,
+        )
+        all_routes.append(_route_tsp)
+    return (all_routes,)
 
 
 @app.cell
-def _():
+def _(all_routes, depots, locations, plot_locations):
+    plot_locations(
+        locations=locations,
+        routes=all_routes,
+        depots=depots,
+        figsize=(8, 5),
+    )
     return
 
 
