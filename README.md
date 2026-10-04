@@ -54,6 +54,10 @@ OM-522-Fall-2026-in-class/
 │   │   ├── README.md
 │   │   ├── clarke_wright.py
 │   │   └── routing_utils.py
+│   ├── 20261006/
+│   │   ├── README.md
+│   │   ├── parallel_machines.py
+│   │   └── parallel_utils.py
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -160,6 +164,23 @@ pixi run test
 
 The [Clarke–Wright guide](in-class-notebooks/20260929/README.md) describes the
 simulated demand and the hub rule.
+
+## Parallel-machine demo
+
+The October 6 demo provides ten simulated batches of machining jobs for
+identical parallel machines, schedule-checking and Gantt-chart helpers, and a
+Marimo notebook for building LPT construction and local improvement in class.
+Run its commands from the `20261006` directory:
+
+```bash
+cd in-class-notebooks/20261006
+pixi install
+pixi run demo
+pixi run test
+```
+
+The [parallel-machine guide](in-class-notebooks/20261006/README.md) describes
+the schedule format and the generated data.
 
 ## Single-machine instance generation
 

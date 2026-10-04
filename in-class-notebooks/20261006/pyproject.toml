@@ -1,0 +1,2 @@
+# Marks this folder as the project root for jedi, which marimo uses for
+# live docs, so it can find parallel_utils.py. Pixi reads pixi.toml instead.

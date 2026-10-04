@@ -1,0 +1,75 @@
+{
+  "generator": "generate_parallel_data.py",
+  "rng": "random.Random, one seed for all instances in order",
+  "seed": 1006,
+  "job_count_range": [
+    16,
+    22
+  ],
+  "processing_time_range_minutes": [
+    10,
+    60
+  ],
+  "instances": [
+    {
+      "instance_id": "instance_001",
+      "job_count": 18,
+      "total_processing_time": 588,
+      "jobs_file": "instance_001/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_002",
+      "job_count": 19,
+      "total_processing_time": 599,
+      "jobs_file": "instance_002/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_003",
+      "job_count": 16,
+      "total_processing_time": 641,
+      "jobs_file": "instance_003/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_004",
+      "job_count": 19,
+      "total_processing_time": 562,
+      "jobs_file": "instance_004/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_005",
+      "job_count": 20,
+      "total_processing_time": 591,
+      "jobs_file": "instance_005/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_006",
+      "job_count": 17,
+      "total_processing_time": 605,
+      "jobs_file": "instance_006/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_007",
+      "job_count": 22,
+      "total_processing_time": 693,
+      "jobs_file": "instance_007/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_008",
+      "job_count": 22,
+      "total_processing_time": 731,
+      "jobs_file": "instance_008/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_009",
+      "job_count": 17,
+      "total_processing_time": 580,
+      "jobs_file": "instance_009/jobs.parquet"
+    },
+    {
+      "instance_id": "instance_010",
+      "job_count": 22,
+      "total_processing_time": 660,
+      "jobs_file": "instance_010/jobs.parquet"
+    }
+  ]
+}
