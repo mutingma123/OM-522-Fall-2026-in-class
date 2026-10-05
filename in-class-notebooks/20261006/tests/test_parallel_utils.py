@@ -105,7 +105,7 @@ def test_plot_gantt_draws_every_job_and_the_bound():
         lower_bound=9,
     )
     assert len(axes.patches) == len(TOY_TIMES)
-    assert axes.get_title() == "Makespan 11 minutes (orange mills set it)"
+    assert axes.get_title() == "Makespan 11 minutes (orange machines set it)"
     assert [label.get_text() for label in axes.get_yticklabels()] == TOY_MACHINES
     assert any(line.get_linestyle() == "--" for line in axes.get_lines())
     matplotlib.pyplot.close(figure)

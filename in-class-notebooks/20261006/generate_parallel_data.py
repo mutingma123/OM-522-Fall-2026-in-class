@@ -1,13 +1,13 @@
 """Generate the October 6 identical-parallel-machine instances.
 
-Each instance is one morning's batch of machining jobs for a cell of identical
-CNC mills. Every job is available at the start of the shift, so the only data a
-job needs is its processing time in minutes. The number of mills is a notebook
-setting rather than part of the data.
+Each instance is one night's queue of model-training runs for a set of
+identical GPU machines. Every run is queued at the start of the night, so the
+only data a job needs is its processing time in minutes. The number of machines
+is a notebook setting rather than part of the data.
 
-A batch has 16 to 22 jobs of 10 to 60 minutes each. With five mills, that is
-three to four jobs per mill, which is where a one-pass construction such as LPT
-most often leaves room for improvement.
+A queue has 16 to 22 jobs of 10 to 60 minutes each. With five machines, that is
+three to four jobs per machine, which is where a one-pass construction such as
+LPT most often leaves room for improvement.
 
 Run with ``pixi run data``. The script refuses to overwrite existing data.
 """

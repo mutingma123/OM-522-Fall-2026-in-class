@@ -239,9 +239,9 @@ def plot_gantt(
     )
     axes.invert_yaxis()
     axes.set_xlim(0, cmax * 1.08 if cmax else 1)
-    axes.set_xlabel("Minutes from the start of the shift")
+    axes.set_xlabel("Minutes from the start of the night")
     axes.set_title(
-        title if title is not None else f"Makespan {cmax} minutes (orange mills set it)",
+        title if title is not None else f"Makespan {cmax} minutes (orange machines set it)",
         pad=16 if lower_bound is not None else 6,
     )
     sns.despine(ax=axes)

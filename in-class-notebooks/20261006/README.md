@@ -1,9 +1,10 @@
 # OM 522 Parallel Machines Demo
 
 This project sets up identical-parallel-machine instances for building Longest
-Processing Time (LPT) construction and local improvement in class. A machine
-shop splits one morning's batch of jobs among several identical CNC mills, and
-the goal is the smallest makespan, i.e., the time the last mill finishes.
+Processing Time (LPT) construction and local improvement in class. A data
+science team splits one night's queue of model-training runs among several
+identical GPU machines, and the goal is the smallest makespan, i.e., the time
+the last machine finishes and the last model is ready.
 
 ## Run the demo
 
@@ -20,18 +21,20 @@ pixi run test
 ```
 
 `parallel_machines.py` loads an instance, summarizes it, and demonstrates the
-helper functions in `parallel_utils.py` on a small board example. The cells for
-the lower bounds, LPT, and the improvement moves are left empty for class.
+helper functions in `parallel_utils.py` on a small board example. The lower
+bounds, LPT, and the improvement loop are written except for five lines marked
+`# IN CLASS`, which are completed in class.
 Change `instance_id` or `machine_count` in the notebook to build a different
 instance.
 
 ## Schedules and helpers
 
-A schedule is a dictionary that maps each mill to its jobs in processing order,
-e.g., `{"M1": ["J03", "J07"], "M2": ["J01"]}`. Every mill starts at time 0 and
-runs its jobs back to back, so a mill's load is also its finish time.
+A schedule is a dictionary that maps each machine to its jobs in processing
+order, e.g., `{"M1": ["J03", "J07"], "M2": ["J01"]}`. Every machine starts at
+time 0 and runs its jobs back to back, so a machine's load is also its finish
+time.
 `parallel_utils.py` rebuilds loads and the makespan from a schedule, checks that
-every job runs exactly once on a known mill, summarizes a schedule by mill, and
+every job runs exactly once on a known machine, summarizes a schedule by machine, and
 draws a Gantt chart with an optional lower-bound line.
 
 ## Data
@@ -46,7 +49,7 @@ overwrite existing data.
 | `manifest.json` | The seed, the sampling ranges, and each instance's job count and total minutes |
 
 Each instance has 16 to 22 jobs, and each job takes 10 to 60 minutes, drawn
-uniformly. Every job is available at the start of the shift. With five mills
-there are three to four jobs per mill, which is where a one-pass construction
+uniformly. Every job is queued at the start of the night. With five machines
+there are three to four jobs per machine, which is where a one-pass construction
 most often leaves room for improvement. The jobs are simulated teaching data
-rather than observed shop data.
+rather than observed workload data.
