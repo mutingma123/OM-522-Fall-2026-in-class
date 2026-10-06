@@ -233,7 +233,7 @@ def _(math):
     def lower_bound(processing_times, machine_count):
         longest_job = max(processing_times.values())
         # IN CLASS: the average load per machine, rounded up to a whole minute.
-        average_load = ...
+        average_load = math.ceil(sum(processing_times.values()) / machine_count)
         return max(longest_job, average_load)
 
     return (lower_bound,)
@@ -280,11 +280,11 @@ def _():
         lpt_order = sorted(
             processing_times,
             # IN CLASS: longest job first, ties broken by job ID.
-            key=...,
+            key=lambda job: (-processing_times[job], job),
         )
         for job in lpt_order:
             # IN CLASS: the least-loaded machine, ties broken by machine ID.
-            machine = ...
+            machine = min(machines, key=lambda m: (loads[m], m))
             schedule[machine].append(job)
             loads[machine] += processing_times[job]
         return schedule
@@ -406,7 +406,10 @@ def _(machine_loads):
                     for j in schedule[a]:
                         # IN CLASS: insertion, the larger of the two changed loads
                         # after moving j from a to b.
-                        new_max = ...
+                        new_max = max(
+                            loads[a] - processing_times[j],
+                            loads[b] + processing_times[j],
+                        )
                         if new_max < cmax and (best is None or new_max < best[0]):
                             best = (new_max, a, b, j, None)
                         # Interchange: swap j on a with a shorter job i on b.
@@ -416,7 +419,7 @@ def _(machine_loads):
                                 continue
                             # IN CLASS: interchange, the larger of the two changed
                             # loads after the swap, written with delta.
-                            new_max = ...
+                            new_max = max(loads[a] - delta, loads[b] + delta)
                             if new_max < cmax and (best is None or new_max < best[0]):
                                 best = (new_max, a, b, j, i)
             if best is None:
