@@ -77,7 +77,7 @@ def _(mo):
 @app.cell
 def _(Path):
     data_dir = Path(__file__).parent / "data"
-    instances = [file.name for file in list(data_dir.glob('*'))]
+    instances = sorted(path.name for path in data_dir.glob("instance_*"))
 
     instances
     return (data_dir,)
@@ -298,69 +298,83 @@ def _(mo):
     mo.md(r"""
     ## Step 4. Insertion and interchange
 
-    Insertion moves job $j$ from machine $a$ to machine $b$:
-    $L_a' = L_a - p_j$ and $L_b' = L_b + p_j$.
+    Both moves change which machine runs a job. Neither changes the order of
+    jobs on a machine, because order does not affect the makespan.
 
-    Interchange swaps job $j$ on machine $a$ with job $i$ on machine $b$:
-    $L_a' = L_a - p_j + p_i$ and $L_b' = L_b - p_i + p_j$.
+    - **Insertion** moves job $j$ from machine $a$ to machine $b$, so $a$ loses
+      $p_j$ minutes and $b$ gains them.
+    - **Interchange** swaps job $j$ on machine $a$ with job $i$ on machine $b$,
+      so $a$ loses $p_j - p_i$ minutes and $b$ gains them.
 
-    Only moves out of a machine at the makespan are considered, and a move is
-    acceptable when both changed loads end below the current makespan. Among
-    acceptable moves, the loop takes the one with the smallest larger load and
-    repeats until none remains.
+    We call the minutes that leave $a$ the **shift**. Only a machine at the
+    makespan gives up work. With $a$ at the makespan, the gap to machine $b$ is
+    $L_a - L_b$, and a move is acceptable when $0 < \text{shift} < L_a - L_b$,
+    because then $a$ finishes earlier and $b$ still finishes before the old
+    makespan. Among acceptable moves, the loop takes the one whose larger
+    changed load is smallest, and it repeats until no acceptable move remains.
+
+    Insertion offers whole jobs as shifts, and interchange offers differences
+    between jobs. When every job on $a$ is at least as long as the gap, only an
+    interchange can help. When no job on $b$ is shorter than the job leaving
+    $a$, only an insertion can help.
+
+    Starting from LPT, insertion cannot help on the first pass. LPT gave the
+    last (and shortest) job on the bottleneck machine to the least-loaded
+    machine, so the gap to every other machine is at most that job's length,
+    and no job on the bottleneck is shorter than the gap. A later pass can still
+    use an insertion once interchanges have changed the loads. Insertion matters
+    most for a starting schedule with uneven job counts, such as the jobs dealt
+    in turn above.
     """)
     return
 
 
 @app.cell
-def _(machine_loads):
+def _(machine_loads, makespan):
     def improve(schedule, processing_times):
         # Work on a copy, because the loop changes the lists in place and the
         # LPT schedule must survive for the comparison.
         schedule = {m: list(jobs) for m, jobs in schedule.items()}
-        loads = machine_loads(schedule, processing_times)
         moves = []
         while True:
+            loads = machine_loads(schedule, processing_times)
             cmax = max(loads.values())
-            best = None
-            for a in sorted(schedule):
+
+            # Collect every acceptable move as (new_max, a, b, j, i), where
+            # i is None for an insertion.
+            candidates = []
+            for a in schedule:
                 if loads[a] < cmax:
                     continue  # only machines at the makespan give up work
-                for b in sorted(schedule):
+                for b in schedule:
                     if b == a:
                         continue
+                    gap = loads[a] - loads[b]
                     for j in schedule[a]:
-                        # IN CLASS: insertion, the larger of the two changed loads
-                        # after moving j from a to b.
-                        new_max = max(
-                            loads[a] - processing_times[j],
-                            loads[b] + processing_times[j],
-                        )
-                        if new_max < cmax and (best is None or new_max < best[0]):
-                            best = (new_max, a, b, j, None)
-                        # Interchange: swap j on a with a shorter job i on b.
+                        # Insertion: move j from a to b.
+                        # IN CLASS: the shift, i.e., the minutes that leave a.
+                        shift = processing_times[j]
+                        if 0 < shift < gap:
+                            new_max = max(loads[a] - shift, loads[b] + shift)
+                            candidates.append((new_max, a, b, j, None))
+                        # Interchange: swap j on a with job i on b.
                         for i in schedule[b]:
-                            delta = processing_times[j] - processing_times[i]
-                            if delta <= 0:
-                                continue
-                            # IN CLASS: interchange, the larger of the two changed
-                            # loads after the swap, written with delta.
-                            new_max = max(loads[a] - delta, loads[b] + delta)
-                            if new_max < cmax and (best is None or new_max < best[0]):
-                                best = (new_max, a, b, j, i)
-            if best is None:
+                            # IN CLASS: the shift, i.e., the minutes that leave a.
+                            shift = processing_times[j] - processing_times[i]
+                            if 0 < shift < gap:
+                                new_max = max(loads[a] - shift, loads[b] + shift)
+                                candidates.append((new_max, a, b, j, i))
+
+            if not candidates:
                 return schedule, moves
-            _, a, b, j, i = best
+            # Take the move whose larger changed load is smallest.
+            _, a, b, j, i = min(candidates, key=lambda move: move[0])
             schedule[a].remove(j)
             schedule[b].append(j)
-            loads[a] -= processing_times[j]
-            loads[b] += processing_times[j]
             if i is not None:
                 schedule[b].remove(i)
                 schedule[a].append(i)
-                loads[b] -= processing_times[i]
-                loads[a] += processing_times[i]
-            moves.append((a, b, j, i, max(loads.values())))
+            moves.append((a, b, j, i, makespan(schedule, processing_times)))
 
     return (improve,)
 
