@@ -312,6 +312,9 @@ def _(mo):
     because then $a$ finishes earlier and $b$ still finishes before the old
     makespan. Among acceptable moves, the loop takes the one whose larger
     changed load is smallest, and it repeats until no acceptable move remains.
+    When several machines tie at the makespan, an accepted move can leave the
+    printed makespan unchanged, because another tied machine still finishes at
+    the old makespan. A later move can then take work off that machine.
 
     Insertion offers whole jobs as shifts, and interchange offers differences
     between jobs. When every job on $a$ is at least as long as the gap, only an
