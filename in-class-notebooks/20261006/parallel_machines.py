@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.24.0"
+__generated_with = "0.24.2"
 app = marimo.App(width="full")
 
 
@@ -34,8 +34,6 @@ def _():
         mo,
         pl,
         plot_gantt,
-        plt,
-        sns,
         summarize_schedule,
         validate_schedule,
     )
@@ -69,31 +67,49 @@ def _(mo):
     mo.md(r"""
     ## Instance settings
 
-    `instance_id` picks one of the ten nightly queues in `data/`, and
-    `machine_count` sets the number of identical GPU machines.
+    `instance_id` picks one of the ten nightly queues in `data/`, or `"toy"` for
+    the board example, and `machine_count` sets the number of identical GPU
+    machines.
     """)
     return
 
 
 @app.cell
-def _():
-    instance_id = "instance_007"
-    machine_count = 5
-    return instance_id, machine_count
+def _(Path):
+    data_dir = Path(__file__).parent / "data"
+    instances = [file.name for file in list(data_dir.glob('*'))]
+
+    instances
+    return (data_dir,)
 
 
 @app.cell
-def _(Path, instance_id, machine_count, pl):
-    data_dir = Path(__file__).parent / "data"
-    jobs = pl.read_parquet(data_dir / instance_id / "jobs.parquet")
+def _(data_dir, pl):
+    # "toy" runs the board example on 3 machines. For a real queue, set e.g.
+    # instance_id = "instance_007" and machine_count = 5.
+    instance_id = "toy"
+    machine_count = 3
 
-    # processing_times["J01"] gives that job's minutes, as demand did for routing.
-    processing_times = {
-        job: minutes
-        for job, minutes in jobs.iter_rows()
-    }
+    if instance_id == "toy":
+        processing_times = {
+            "J1": 5,
+            "J2": 5,
+            "J3": 4,
+            "J4": 4,
+            "J5": 3,
+            "J6": 3,
+            "J7": 3,
+        }
+    else:
+        jobs = pl.read_parquet(data_dir / instance_id / "jobs.parquet")
+
+        # processing_times["J01"] gives that job's minutes, as demand did for routing.
+        processing_times = {
+            job: minutes
+            for job, minutes in jobs.iter_rows()
+        }
     machines = [f"M{_number}" for _number in range(1, machine_count + 1)]
-    return jobs, machines, processing_times
+    return instance_id, machine_count, machines, processing_times
 
 
 @app.cell
@@ -110,51 +126,6 @@ def _(machines, processing_times):
         f"{_total_minutes / len(machines):.1f}"
     )
     return
-
-
-@app.cell
-def _(jobs, plt, sns):
-    _fig, _ax = plt.subplots(
-        nrows=1,
-        ncols=1,
-        figsize=(6, 3.5),
-    )
-    sns.histplot(
-        x=jobs.get_column("processing_time").to_list(),
-        binwidth=5,
-        edgecolor="k",
-        ax=_ax,
-    )
-    _ax.set_title("Job processing times")
-    _ax.set_xlabel("Minutes")
-    _fig
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## The board example
-
-    The seven jobs from the board, on three machines. Trace them by hand first,
-    then use them to test the code before running it on the real queue.
-    """)
-    return
-
-
-@app.cell
-def _():
-    toy_processing_times = {
-        "J1": 5,
-        "J2": 5,
-        "J3": 4,
-        "J4": 4,
-        "J5": 3,
-        "J6": 3,
-        "J7": 3,
-    }
-    toy_machines = ["M1", "M2", "M3"]
-    return toy_machines, toy_processing_times
 
 
 @app.cell(hide_code=True)
@@ -182,7 +153,7 @@ def _(mo):
     The checker and the load rebuild never reuse loads computed by our own
     method, so a bookkeeping mistake in the method cannot hide itself.
 
-    For example, the cell below deals the board jobs to the machines in turn, like
+    For example, the cell below deals the jobs to the machines in turn, like
     cards, ignoring their sizes.
     """)
     return
@@ -190,25 +161,26 @@ def _(mo):
 
 @app.cell
 def _(
+    machines,
     plot_gantt,
+    processing_times,
     summarize_schedule,
-    toy_machines,
-    toy_processing_times,
     validate_schedule,
 ):
-    _dealt = {_machine: [] for _machine in toy_machines}
-    for _position, _job in enumerate(toy_processing_times):
-        _dealt[toy_machines[_position % len(toy_machines)]].append(_job)
+    _dealt = {_machine: [] for _machine in machines}
+    for _position, _job in enumerate(processing_times):
+        _dealt[machines[_position % len(machines)]].append(_job)
 
     validate_schedule(
         schedule=_dealt,
-        jobs=toy_processing_times,
-        machines=toy_machines,
+        jobs=processing_times,
+        machines=machines,
     )
-    print(summarize_schedule(_dealt, toy_processing_times))
+    print(summarize_schedule(_dealt, processing_times))
+
     _fig, _ax = plot_gantt(
         schedule=_dealt,
-        processing_times=toy_processing_times,
+        processing_times=processing_times,
         title="Jobs dealt in turn",
         figsize=(7, 2.5),
     )
@@ -240,24 +212,15 @@ def _(math):
 
 
 @app.cell
-def _(
-    instance_id,
-    lower_bound,
-    machine_count,
-    processing_times,
-    toy_machines,
-    toy_processing_times,
-):
-    toy_bound = lower_bound(toy_processing_times, len(toy_machines))
+def _(instance_id, lower_bound, machine_count, processing_times):
     instance_bound = lower_bound(processing_times, machine_count)
 
-    print(f"Board example: lower bound {toy_bound} minutes")
     print(
         f"{instance_id}: longest job {max(processing_times.values())} minutes, "
         f"average load {sum(processing_times.values()) / machine_count:.1f} minutes, "
         f"lower bound {instance_bound} minutes"
     )
-    return instance_bound, toy_bound
+    return (instance_bound,)
 
 
 @app.cell(hide_code=True)
@@ -272,57 +235,21 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
-    def lpt(processing_times, machines):
-        schedule = {machine: [] for machine in machines}
-        loads = {machine: 0 for machine in machines}
-        lpt_order = sorted(
-            processing_times,
-            # IN CLASS: longest job first, ties broken by job ID.
-            key=lambda job: (-processing_times[job], job),
-        )
-        for job in lpt_order:
-            # IN CLASS: the least-loaded machine, ties broken by machine ID.
-            machine = min(machines, key=lambda m: (loads[m], m))
-            schedule[machine].append(job)
-            loads[machine] += processing_times[job]
-        return schedule
-
-    return (lpt,)
-
-
-@app.cell
-def _(
-    lpt,
-    makespan,
-    plot_gantt,
-    summarize_schedule,
-    toy_bound,
-    toy_machines,
-    toy_processing_times,
-    validate_schedule,
-):
-    toy_lpt = lpt(toy_processing_times, toy_machines)
-
-    validate_schedule(
-        schedule=toy_lpt,
-        jobs=toy_processing_times,
-        machines=toy_machines,
+@app.function
+def lpt(processing_times, machines):
+    schedule = {machine: [] for machine in machines}
+    loads = {machine: 0 for machine in machines}
+    lpt_order = sorted(
+        processing_times,
+        # IN CLASS: longest job first, ties broken by job ID.
+        key=lambda job: (-processing_times[job], job),
     )
-    print(
-        f"Board example: LPT makespan {makespan(toy_lpt, toy_processing_times)} "
-        f"minutes against a lower bound of {toy_bound}"
-    )
-    print(summarize_schedule(toy_lpt, toy_processing_times))
-    _fig, _ax = plot_gantt(
-        schedule=toy_lpt,
-        processing_times=toy_processing_times,
-        lower_bound=toy_bound,
-        figsize=(7, 2.5),
-    )
-    _fig
-    return (toy_lpt,)
+    for job in lpt_order:
+        # IN CLASS: the least-loaded machine, ties broken by machine ID.
+        machine = min(machines, key=lambda m: (loads[m], m))
+        schedule[machine].append(job)
+        loads[machine] += processing_times[job]
+    return schedule
 
 
 @app.cell(hide_code=True)
@@ -337,7 +264,6 @@ def _(mo):
 def _(
     instance_bound,
     instance_id,
-    lpt,
     machines,
     makespan,
     plot_gantt,
@@ -439,44 +365,19 @@ def _(machine_loads):
     return (improve,)
 
 
-@app.cell
-def _():
-    def print_moves(moves, processing_times):
-        """Print one line per move accepted by improve()."""
-        for number, (a, b, j, i, cmax_after) in enumerate(moves, start=1):
-            if i is None:
-                action = f"move {j} ({processing_times[j]}) from {a} to {b}"
-            else:
-                action = (
-                    f"swap {j} ({processing_times[j]}) on {a} "
-                    f"with {i} ({processing_times[i]}) on {b}"
-                )
-            print(f"Move {number}: {action}, makespan now {cmax_after}")
-        print(f"{len(moves)} moves accepted")
-
-    return (print_moves,)
-
-
-@app.cell
-def _(
-    improve,
-    print_moves,
-    toy_bound,
-    toy_lpt,
-    toy_machines,
-    toy_processing_times,
-    validate_schedule,
-):
-    toy_improved, toy_moves = improve(toy_lpt, toy_processing_times)
-
-    validate_schedule(
-        schedule=toy_improved,
-        jobs=toy_processing_times,
-        machines=toy_machines,
-    )
-    print(f"Board example, lower bound {toy_bound}")
-    print_moves(toy_moves, toy_processing_times)
-    return
+@app.function
+def print_moves(moves, processing_times):
+    """Print one line per move accepted by improve()."""
+    for number, (a, b, j, i, cmax_after) in enumerate(moves, start=1):
+        if i is None:
+            action = f"move {j} ({processing_times[j]}) from {a} to {b}"
+        else:
+            action = (
+                f"swap {j} ({processing_times[j]}) on {a} "
+                f"with {i} ({processing_times[i]}) on {b}"
+            )
+        print(f"Move {number}: {action}, makespan now {cmax_after}")
+    print(f"{len(moves)} moves accepted")
 
 
 @app.cell
@@ -485,7 +386,6 @@ def _(
     instance_id,
     lpt_schedule,
     machines,
-    print_moves,
     processing_times,
     validate_schedule,
 ):
@@ -555,6 +455,11 @@ def _(
         lower_bound=instance_bound,
     )
     _fig
+    return
+
+
+@app.cell
+def _():
     return
 
 
