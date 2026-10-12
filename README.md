@@ -58,6 +58,10 @@ OM-522-Fall-2026-in-class/
 │   │   ├── README.md
 │   │   ├── parallel_machines.py
 │   │   └── parallel_utils.py
+│   ├── 20261013/
+│   │   ├── README.md
+│   │   ├── eligible_machines.py
+│   │   └── eligibility_utils.py
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -167,8 +171,8 @@ simulated demand and the hub rule.
 
 ## Parallel-machine demo
 
-The October 6 demo provides ten simulated batches of machining jobs for
-identical parallel machines, schedule-checking and Gantt-chart helpers, and a
+The October 6 demo provides ten simulated nightly queues of model-training runs
+for identical GPU machines, schedule-checking and Gantt-chart helpers, and a
 Marimo notebook for building LPT construction and local improvement in class.
 Run its commands from the `20261006` directory:
 
@@ -181,6 +185,24 @@ pixi run test
 
 The [parallel-machine guide](in-class-notebooks/20261006/README.md) describes
 the schedule format and the generated data.
+
+## Eligible-machines demo
+
+The October 13 demo extends the October 6 notebook to a mixed GPU fleet, in
+which a run may use only machines with enough memory and the older cards take
+twice as long. It provides ten simulated queues, an eligibility-aware checker,
+and a Marimo notebook that adapts the lower bounds, LPT, and the improvement
+moves. Run its commands from the `20261013` directory:
+
+```bash
+cd in-class-notebooks/20261013
+pixi install
+pixi run demo
+pixi run test
+```
+
+The [eligible-machines guide](in-class-notebooks/20261013/README.md) describes
+the processing-time format and the generated data.
 
 ## Single-machine instance generation
 

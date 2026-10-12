@@ -1,0 +1,99 @@
+{
+  "generator": "generate_eligibility_data.py",
+  "rng": "random.Random, one seed for all instances in order",
+  "seed": 1013,
+  "job_count_range": [
+    16,
+    22
+  ],
+  "base_minutes_range": [
+    10,
+    60
+  ],
+  "slowdown_by_memory_gb": {
+    "80": 1.0,
+    "40": 1.0,
+    "24": 2.0
+  },
+  "memory_need_weights": {
+    "24": 0.5,
+    "40": 0.3,
+    "80": 0.2
+  },
+  "machines_per_tier_range": [
+    1,
+    2
+  ],
+  "instances": [
+    {
+      "instance_id": "instance_001",
+      "job_count": 20,
+      "machine_count": 5,
+      "eligible_pair_count": 92,
+      "directory": "instance_001"
+    },
+    {
+      "instance_id": "instance_002",
+      "job_count": 22,
+      "machine_count": 6,
+      "eligible_pair_count": 118,
+      "directory": "instance_002"
+    },
+    {
+      "instance_id": "instance_003",
+      "job_count": 21,
+      "machine_count": 4,
+      "eligible_pair_count": 78,
+      "directory": "instance_003"
+    },
+    {
+      "instance_id": "instance_004",
+      "job_count": 21,
+      "machine_count": 5,
+      "eligible_pair_count": 82,
+      "directory": "instance_004"
+    },
+    {
+      "instance_id": "instance_005",
+      "job_count": 20,
+      "machine_count": 5,
+      "eligible_pair_count": 81,
+      "directory": "instance_005"
+    },
+    {
+      "instance_id": "instance_006",
+      "job_count": 21,
+      "machine_count": 5,
+      "eligible_pair_count": 84,
+      "directory": "instance_006"
+    },
+    {
+      "instance_id": "instance_007",
+      "job_count": 17,
+      "machine_count": 6,
+      "eligible_pair_count": 80,
+      "directory": "instance_007"
+    },
+    {
+      "instance_id": "instance_008",
+      "job_count": 17,
+      "machine_count": 3,
+      "eligible_pair_count": 36,
+      "directory": "instance_008"
+    },
+    {
+      "instance_id": "instance_009",
+      "job_count": 19,
+      "machine_count": 5,
+      "eligible_pair_count": 79,
+      "directory": "instance_009"
+    },
+    {
+      "instance_id": "instance_010",
+      "job_count": 21,
+      "machine_count": 5,
+      "eligible_pair_count": 80,
+      "directory": "instance_010"
+    }
+  ]
+}
