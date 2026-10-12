@@ -16,7 +16,7 @@ from eligibility_utils import (
     summarize_schedule,
     validate_schedule,
 )
-from eligible_machines import identical_lpt, lpt
+from eligible_machines import flow_makespan, identical_lpt, johnson_order, lpt
 from generate_eligibility_data import (
     BASE_MINUTES_RANGE,
     INSTANCE_COUNT,
@@ -177,3 +177,21 @@ def test_plot_gantt_draws_every_job_at_its_machine_time():
     assert [label.get_text() for label in axes.get_yticklabels()] == TOY_MACHINES
     assert any(line.get_linestyle() == "--" for line in axes.get_lines())
     matplotlib.pyplot.close(figure)
+
+
+FLOW_RUNS = {"A": (4, 6), "B": (7, 3), "C": (2, 5), "D": (6, 7), "E": (5, 2)}
+
+
+def test_johnson_order_on_the_board_runs():
+    assert johnson_order(FLOW_RUNS) == ["C", "A", "D", "B", "E"]
+    makespans = [flow_makespan(order, FLOW_RUNS) for order in itertools.permutations(FLOW_RUNS)]
+    assert flow_makespan(johnson_order(FLOW_RUNS), FLOW_RUNS) == min(makespans) == 26
+    assert makespans.count(26) == 2 and max(makespans) == 36
+
+
+def test_johnson_order_is_optimal_on_random_two_stage_instances():
+    rng = random.Random(1013)
+    for _ in range(200):
+        runs = {f"R{i}": (rng.randint(1, 9), rng.randint(1, 9)) for i in range(6)}
+        best = min(flow_makespan(order, runs) for order in itertools.permutations(runs))
+        assert flow_makespan(johnson_order(runs), runs) == best

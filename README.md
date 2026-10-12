@@ -192,7 +192,9 @@ The October 13 demo extends the October 6 notebook to a mixed GPU fleet, in
 which a run may use only machines with enough memory and the older cards take
 twice as long. It provides ten simulated queues, an eligibility-aware checker,
 and a Marimo notebook that adapts the lower bounds, LPT, and the improvement
-moves. Run its commands from the `20261013` directory:
+moves. Its last step turns to a two-stage flow shop (prep, then training) and
+checks Johnson's rule against every order of five runs. Run its commands from
+the `20261013` directory:
 
 ```bash
 cd in-class-notebooks/20261013

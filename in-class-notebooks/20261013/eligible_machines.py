@@ -582,5 +582,81 @@ def _(fleet, improved_schedule, machine_loads, pl, processing_times):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Step 9. A different shape: a two-stage flow shop
+
+    Each training run is first prepared on a CPU node and then trained on the
+    GPU, and the runs keep one order at both machines. The only decision is the
+    order. Johnson's rule (1954) finds the order with the smallest makespan:
+    runs whose prep is shorter than their training go first, shortest prep
+    first, and the rest go last, longest training first.
+
+    The cell checks the rule against all 120 orders of the five runs. Johnson's
+    rule is optimal only for two stages and the makespan. Option 6 has more
+    stages and due dates, so there it is a starting point, not an answer.
+    """)
+    return
+
+
+@app.function
+def flow_makespan(order, prep_train):
+    """Makespan when the runs go through prep and then training in `order`."""
+    prep_free = gpu_free = 0
+    for run in order:
+        prep, train = prep_train[run]
+        prep_free += prep
+        gpu_free = max(prep_free, gpu_free) + train
+    return gpu_free
+
+
+@app.function
+def johnson_order(prep_train):
+    """Johnson's rule for two stages, with ties broken by run ID."""
+    # IN CLASS: runs with a shorter prep than training go first, shortest prep first.
+    first = sorted(
+        (run for run, (prep, train) in prep_train.items() if prep < train),
+        key=lambda run: (prep_train[run][0], run),
+    )
+    # IN CLASS: the rest go last, longest training first.
+    last = sorted(
+        (run for run, (prep, train) in prep_train.items() if prep >= train),
+        key=lambda run: (-prep_train[run][1], run),
+    )
+    return first + last
+
+
+@app.cell
+def _(pl):
+    from itertools import permutations as _permutations
+
+    # Minutes of prep, then minutes of training, for each run.
+    prep_train = {"A": (4, 6), "B": (7, 3), "C": (2, 5), "D": (6, 7), "E": (5, 2)}
+
+    _total = {_run: sum(_times) for _run, _times in prep_train.items()}
+    _orders = {
+        "Letter order": sorted(prep_train),
+        "Longest total first": sorted(prep_train, key=lambda _run: (-_total[_run], _run)),
+        "Shortest total first": sorted(prep_train, key=lambda _run: (_total[_run], _run)),
+        "Johnson's rule": johnson_order(prep_train),
+    }
+    _all = [flow_makespan(_order, prep_train) for _order in _permutations(prep_train)]
+    _bound = max(
+        sum(_prep for _prep, _ in prep_train.values()) + min(_train for _, _train in prep_train.values()),
+        min(_prep for _prep, _ in prep_train.values()) + sum(_train for _, _train in prep_train.values()),
+    )
+    print(f"Lower bound {_bound} minutes")
+    print(f"Best of {len(_all)} orders {min(_all)}, reached by {_all.count(min(_all))}; worst {max(_all)}")
+    pl.DataFrame(
+        {
+            "rule": list(_orders),
+            "order": [", ".join(_order) for _order in _orders.values()],
+            "makespan": [flow_makespan(_order, prep_train) for _order in _orders.values()],
+        }
+    )
+    return (prep_train,)
+
+
 if __name__ == "__main__":
     app.run()
