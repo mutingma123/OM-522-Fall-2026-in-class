@@ -62,6 +62,9 @@ OM-522-Fall-2026-in-class/
 │   │   ├── README.md
 │   │   ├── eligible_machines.py
 │   │   └── eligibility_utils.py
+│   ├── 20261015/
+│   │   ├── README.md
+│   │   └── critical_path.py
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -205,6 +208,24 @@ pixi run test
 
 The [eligible-machines guide](in-class-notebooks/20261013/README.md) describes
 the processing-time format and the generated data.
+
+## Critical path demo
+
+The October 15 demo schedules the launch of a new production cell with the
+critical path method. A Marimo notebook stores the seven-task project as a
+networkx graph, runs the forward and backward passes, and draws the network and
+a Gantt chart with each task's slack. Sliders change task durations, and a last
+section shows how a crew shared by two tasks lengthens the project. Run its
+commands from the `20261015` directory:
+
+```bash
+cd in-class-notebooks/20261015
+pixi install
+pixi run demo
+```
+
+The [critical path guide](in-class-notebooks/20261015/README.md) describes
+what each part of the notebook shows.
 
 ## Single-machine instance generation
 
