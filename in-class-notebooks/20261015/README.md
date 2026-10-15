@@ -22,20 +22,10 @@ pixi run check
 
 ## What the notebook shows
 
-`critical_path.py` opens with a slider for each task's duration, and every
-table and chart below recomputes when a slider moves. The `cpm` function runs
-the forward pass (each task starts when its last predecessor finishes) and the
-backward pass (each task finishes by the time its earliest-due successor must
-start), and the notebook reports the early and late start and finish times and
-the slack for every task. It then lists every start-to-finish path with its
-length and checks the passes against networkx's `dag_longest_path_length`,
-because the critical path is the longest path through the network. Two charts
-follow, the network with the critical tasks highlighted and a Gantt chart with
-each task's slack drawn after its bar.
-
-The last section assigns two tasks to one shared crew, so the two tasks cannot
-overlap. The notebook adds a precedence edge in each order, reruns the passes,
-and compares the project duration with the CPM duration, which is a lower bound
-once resources are limited. Lengthening one task (e.g., B) until its slack is
-used up, and then by one more day, shows when a second critical path appears
-and when the project finish moves.
+`critical_path.py` stores each task's name, duration, and predecessors in one
+dictionary, and changing a duration there changes every chart below. The `cpm`
+function runs the forward pass (each task starts when its last predecessor
+finishes) and the backward pass (each task finishes by the time its earliest-due
+successor must start), and returns each task's early and late start and finish
+times and slack. Two charts follow, the network with the critical tasks
+highlighted and a Gantt chart with each task's slack drawn after its bar.
