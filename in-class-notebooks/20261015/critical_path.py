@@ -41,41 +41,26 @@ def _(mo):
 @app.cell
 def _():
     TASKS = {
-        "A": {"name": "Specify cell", "predecessors": []},
-        "B": {"name": "Order equipment", "predecessors": ["A"]},
-        "C": {"name": "Design layout", "predecessors": ["A"]},
-        "D": {"name": "Prepare utilities", "predecessors": ["B"]},
-        "E": {"name": "Install equipment", "predecessors": ["B", "C"]},
-        "F": {"name": "Train operators", "predecessors": ["C"]},
-        "G": {"name": "Validate cell", "predecessors": ["D", "E", "F"]},
+        "A": {"name": "Specify cell", "predecessors": [], "duration": 4},
+        "B": {"name": "Order equipment", "predecessors": ["A"], "duration": 3},
+        "C": {"name": "Design layout", "predecessors": ["A"], "duration": 5},
+        "D": {"name": "Prepare utilities", "predecessors": ["B"], "duration": 4},
+        "E": {"name": "Install equipment", "predecessors": ["B", "C"], "duration": 6},
+        "F": {"name": "Train operators", "predecessors": ["C"], "duration": 3},
+        "G": {"name": "Validate cell", "predecessors": ["D", "E", "F"], "duration": 2},
     }
     return (TASKS,)
 
 
 @app.cell
-def _():
-    # Task durations in days. Change a value here and every chart below recomputes.
-    durations = {
-        "A": 4,
-        "B": 3,
-        "C": 5,
-        "D": 4,
-        "E": 6,
-        "F": 3,
-        "G": 2,
-    }
-    return (durations,)
-
-
-@app.cell
-def _(TASKS, durations, nx):
+def _(TASKS, nx):
     # One node per task, one edge per precedence requirement (predecessor -> task).
     graph = nx.DiGraph()
     for _task, _data in TASKS.items():
         graph.add_node(
             _task,
             name=_data["name"],
-            duration=durations[_task],
+            duration=_data["duration"],
         )
     for _task, _data in TASKS.items():
         for _predecessor in _data["predecessors"]:
@@ -96,29 +81,29 @@ def _(nx):
         times = {}
         # Forward pass: a task starts when its last predecessor finishes, or on day 0 if it
         # has no predecessors.
-        for task in order:
-            duration = graph.nodes[task]["duration"]
-            early_start = max(
-                (times[predecessor]["EF"] for predecessor in graph.predecessors(task)),
+        for _task in order:
+            _duration = graph.nodes[_task].get("duration")
+            _early_start = max(
+                [times[_predecessor]["EF"] for _predecessor in graph.predecessors(_task)],
                 default=0,
             )
-            times[task] = {
-                "ES": early_start,
-                "EF": early_start + duration,
+            times[_task] = {
+                "ES": _early_start,
+                "EF": _early_start + _duration,
             }
-        project_duration = max(task_times["EF"] for task_times in times.values())
+        _project_duration = max([_entry["EF"] for _entry in times.values()])
         # Backward pass: a task must finish by the earliest LS among its successors, or by
         # the project finish if it has no successors.
-        for task in reversed(order):
-            duration = graph.nodes[task]["duration"]
-            late_finish = min(
-                (times[successor]["LS"] for successor in graph.successors(task)),
-                default=project_duration,
+        for _task in reversed(order):
+            _duration = graph.nodes[_task].get("duration")
+            _late_finish = min(
+                [times[_successor]["LS"] for _successor in graph.successors(_task)],
+                default=_project_duration,
             )
-            times[task]["LF"] = late_finish
-            times[task]["LS"] = late_finish - duration
-            times[task]["slack"] = times[task]["LS"] - times[task]["ES"]
-        return times, project_duration
+            times[_task]["LF"] = _late_finish
+            times[_task]["LS"] = _late_finish - _duration
+            times[_task]["slack"] = times[_task]["LS"] - times[_task]["ES"]
+        return times, _project_duration
 
     return (cpm,)
 
