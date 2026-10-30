@@ -21,7 +21,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # One machine, three settings
+    # The single-machine model
 
     Jobs arrive at one machine, wait in line, and leave. Each job takes 4 minutes on average.
     """)

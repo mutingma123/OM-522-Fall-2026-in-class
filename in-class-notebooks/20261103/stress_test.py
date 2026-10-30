@@ -182,7 +182,7 @@ def _(execute, jobs, pl, plans):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Thirty scenarios, saved before any plan runs
+    # Saving the scenarios
     """)
     return
 
