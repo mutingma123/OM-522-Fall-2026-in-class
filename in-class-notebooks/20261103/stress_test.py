@@ -32,15 +32,20 @@ def _(mo):
 
 
 @app.cell
-def _(st):
-    SLOW_TO_FIT = ["studentized_range", "levy_stable"]
-
+def _():
+    # Eight common families instead of SciPy's 100-plus. The search takes a fraction of a
+    # second, and the winner is a distribution we can explain. FlowSim has the same list
+    # as flowsim.FAMILIES and the same search as flowsim.best_fit.
     families = [
-        name
-        for name in dir(st)
-        if isinstance(getattr(st, name), st.rv_continuous) and name not in SLOW_TO_FIT
+        "norm",
+        "lognorm",
+        "uniform",
+        "triang",
+        "expon",
+        "gamma",
+        "weibull_min",
+        "beta",
     ]
-    len(families)
     return (families,)
 
 
@@ -82,7 +87,7 @@ def _(pathlib, pl):
 @app.cell
 def _(best_fit, data_sample, families):
     fits = best_fit(data_sample, families)
-    fits.head(10)
+    fits
     return (fits,)
 
 

@@ -258,7 +258,7 @@ describes the eight data files and what each part of the notebook shows.
 ## Stress test demo
 
 The November 3 demo wraps the October 22 search in one function that ranks
-every family by the one-sample Kolmogorov-Smirnov statistic, then runs two
+eight common families by the one-sample Kolmogorov-Smirnov statistic, then runs two
 fixed single-machine plans through 30 saved scenarios of uncertain processing
 times, which is the protocol of the final project's stress test. Run its
 commands from the `20261103` directory:

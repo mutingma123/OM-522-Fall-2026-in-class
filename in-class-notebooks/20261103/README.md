@@ -21,10 +21,13 @@ pixi run check
 
 `stress_test.py` has three parts.
 
-1. `best_fit(data, families)` fits every continuous distribution in `scipy.stats` (except the
-   two slow ones) to a data file and ranks them by the one-sample Kolmogorov-Smirnov statistic
-   against the fitted CDF. The statistic uses no random draws, so the ranking is the same on every
-   run. The eight files in `data-samples/` are the October 22 files.
+1. `best_fit(data, families)` fits eight common families (normal, lognormal, uniform,
+   triangular, exponential, gamma, Weibull, and beta) to a data file and ranks them by the
+   one-sample Kolmogorov-Smirnov statistic against the fitted CDF. The statistic uses no random
+   draws, so the ranking is the same on every run. The eight files in `data-samples/` are the
+   October 22 files. FlowSim 0.2.0 has the same search (`flowsim.best_fit`) and turns a fitted
+   row into a duration sampler (`flowsim.sampler`), so a team can fit project data and simulate
+   with it in one environment.
 2. Eight jobs on one machine have two fixed plans, the earliest due date (EDD) sequence and the
    sequence that pairwise interchange reaches from it. `execute` runs a plan as early as the
    processing times allow and reports total tardiness, maximum lateness, and whether any job is
