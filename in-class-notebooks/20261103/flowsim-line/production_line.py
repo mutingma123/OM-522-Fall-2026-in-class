@@ -231,8 +231,6 @@ def _(flowsim, samples):
     # With nonnegative=True, every row starts at zero or above, so the best
     # nonnegative fit is simply the first row (rank 1).
     chosen = {name: table.row(0, named=True) for name, table in fits.items()}
-
-    fits
     return chosen, fits
 
 
@@ -330,6 +328,7 @@ def _(SEED, chosen, flowsim, np):
         params=chosen["Weld"]["params"],
     )
     _rng = np.random.default_rng(SEED)
+
     [round(weld_time(_rng), 2) for _ in range(5)]
     return (weld_time,)
 
