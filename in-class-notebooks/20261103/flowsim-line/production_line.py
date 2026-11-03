@@ -17,8 +17,7 @@ def _():
     from flowsim import Model, best_fit, compare, sampler
 
     SEED = 522
-    DATA = mo.notebook_dir() / "data"
-    return DATA, Model, SEED, best_fit, compare, go, mo, np, pl, sampler, st
+    return Model, SEED, best_fit, compare, go, mo, np, pl, sampler, st
 
 
 @app.cell(hide_code=True)
@@ -61,17 +60,27 @@ def _(mo):
 
 
 @app.cell
-def _(DATA, pl):
-    releases = pl.read_csv(DATA / "releases.csv", try_parse_dates=True)
-    processing_times = pl.read_csv(DATA / "processing_times.csv")
-    print({"releases": releases.height, "processing rows": processing_times.height})
-    releases.head()
-    return processing_times, releases
+def _(pl):
+    release_data = pl.read_csv(
+        "data/releases.csv", 
+        try_parse_dates=True,
+    )
+    print(f'{release_data.shape = }')
+
+    processing_data = pl.read_csv("data/processing_times.csv")
+    print(f'{processing_data.shape = }')
+    return processing_data, release_data
 
 
 @app.cell
-def _(processing_times):
-    processing_times.head(6)
+def _(release_data):
+    release_data.sort('released').head()
+    return
+
+
+@app.cell
+def _(processing_data):
+    processing_data.head(6)
     return
 
 
@@ -86,9 +95,9 @@ def _(mo):
 
 
 @app.cell
-def _(pl, releases):
+def _(pl, release_data):
     release_gaps = (
-        releases.sort("released")
+        release_data.sort("released")
         .with_columns(
             (pl.col("released").diff().dt.total_seconds() / 60)
             .over(pl.col("released").dt.date())
@@ -112,12 +121,12 @@ def _(mo):
 
 
 @app.cell
-def _(pl, processing_times, release_gaps):
+def _(pl, processing_data, release_gaps):
     samples = {
         "Release gap": release_gaps["gap"].to_numpy(),
-        "Cut": processing_times.filter(pl.col("station") == "Cut")["minutes"].to_numpy(),
-        "Weld": processing_times.filter(pl.col("station") == "Weld")["minutes"].to_numpy(),
-        "Paint": processing_times.filter(pl.col("station") == "Paint")["minutes"].to_numpy(),
+        "Cut": processing_data.filter(pl.col("station") == "Cut")["minutes"].to_numpy(),
+        "Weld": processing_data.filter(pl.col("station") == "Weld")["minutes"].to_numpy(),
+        "Paint": processing_data.filter(pl.col("station") == "Paint")["minutes"].to_numpy(),
     }
     pl.DataFrame(
         [
@@ -148,9 +157,35 @@ def _(mo):
       every run;
     - `params`, the fitted parameters in SciPy's order (any shape parameters, then the location,
       then the scale);
-    - `lower` and `upper`, the smallest and largest values the fitted distribution can draw.
+    - `lower` and `upper`, the smallest and largest values the fitted distribution can draw;
+    - `loc_fixed`, which marks a fit that `best_fit` redid so that it starts at zero (see below).
 
-    We start with Weld.
+    We start with Weld, and first with the fits SciPy gives on its own (`nonnegative=False`).
+    """)
+    return
+
+
+@app.cell
+def _(best_fit, samples):
+    free_weld_fits = best_fit(samples["Weld"], nonnegative=False)
+    free_weld_fits
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    Look at `lower`. The top-ranked lognormal starts at about −1.2 minutes, even though no weld
+    took less than 0.19 minutes, so it will occasionally draw a negative weld time (about 1 draw
+    in 1,000). FlowSim stops with an error when a time is negative. One simulated day draws about
+    96 weld times, so this fit would produce a negative time about once every ten simulated days,
+    and the 500 days in the comparison at the end of the notebook would almost surely stop.
+
+    The shift comes from the fit itself. SciPy fits the starting point (`loc`) along with the
+    other parameters, and moving the start below zero can match the bulk of the data better. By
+    default (`nonnegative=True`), `best_fit` refits any family that starts below zero with its
+    start held at zero and marks it in `loc_fixed`, and it leaves out a family that still reaches
+    below zero, such as the normal.
     """)
     return
 
@@ -159,20 +194,21 @@ def _(mo):
 def _(best_fit, samples):
     weld_fits = best_fit(samples["Weld"])
     weld_fits
-    return (weld_fits,)
+    return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Look at `lower` before trusting the first row. The top-ranked lognormal was shifted to start
-    at about −1.2 minutes, so it will occasionally draw a negative weld time (about 1 draw in
-    1,000). FlowSim stops with an error when a time is negative. One simulated day draws about
-    96 weld times, so this fit would produce a negative time about once every ten simulated days,
-    and the 500 days in the comparison at the end of the notebook would almost surely stop.
+    Every row now starts at zero or above, and the lognormal, held at zero, falls to fourth. Now
+    look at `upper`. A finite `upper` is a ceiling that no simulated time can exceed, which
+    removes the rare long jobs that make a line back up. The first-ranked beta has a ceiling so
+    high (about 580 billion minutes) that it behaves like the gamma it ties with, but for the
+    release gap the beta's ceiling is 107 minutes.
 
-    The rule we use is simple. **Take the highest-ranked family whose `lower` is zero or more.**
-    The plot shows the data with the top three fits and the one the rule chose, for any input.
+    The rule we use is simple. **Take the highest-ranked family with no ceiling (`upper` is
+    infinite).** The plot shows the data with the top three fits and the one the rule chose, for
+    any input.
     """)
     return
 
@@ -180,8 +216,8 @@ def _(mo):
 @app.cell
 def _(pl):
     def choose(fits):
-        # The highest-ranked family that can never draw a negative time.
-        return fits.filter(pl.col("lower") >= 0).row(0, named=True)
+        # The highest-ranked family with no ceiling on its draws.
+        return fits.filter(pl.col("upper").is_infinite()).row(0, named=True)
 
     return (choose,)
 
@@ -242,8 +278,8 @@ def _(chosen, fits, go, input_picker, np, samples, st):
 def _(mo):
     mo.md(r"""
     The table lists the family the rule chose for each input. The release gap comes out
-    exponential, which is what releases at random moments through the day produce, and its CV
-    near 1 says the same thing.
+    exponential (second, behind the beta with a ceiling), which is what releases at random
+    moments through the day produce, and its CV near 1 says the same thing.
     """)
     return
 
@@ -259,6 +295,7 @@ def _(chosen, pl):
                 "ks": row["ks"],
                 "lower": row["lower"],
                 "upper": row["upper"],
+                "loc_fixed": row["loc_fixed"],
             }
             for name, row in chosen.items()
         ]
