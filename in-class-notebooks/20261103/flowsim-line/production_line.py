@@ -674,6 +674,33 @@ def _(comparison):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    Where do the extra jobs come from? The table splits Weld's shift, averaged over the 100
+    shifts, into the share spent working on jobs (`processing_utilization`) and the share spent
+    blocked, holding a finished job with nowhere to put it (`blocking_fraction`). FlowSim's
+    `utilization` is the two added together, i.e., the share of the shift the machine is
+    occupied. The utilization in the Quiz 3 investigation is `processing_utilization`.
+    """)
+    return
+
+
+@app.cell
+def _(comparison, pl):
+    (
+        comparison.stations
+        .filter(pl.col("station") == "Weld")
+        .group_by("scenario", maintain_order=True)
+        .agg(
+            pl.col("processing_utilization").mean(),
+            pl.col("blocking_fraction").mean(),
+            pl.col("utilization").mean(),
+        )
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     The next table is each plan minus the current one (racks of 2 and 2), paired day by day.
     An interval that excludes zero is a change the plan reliably makes.
     """)
