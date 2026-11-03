@@ -14,10 +14,10 @@ def _():
     import scipy.stats as st
 
     # FlowSim is the folder `flowsim/` next to this notebook, so Python imports it directly.
-    from flowsim import Model, best_fit, compare, sampler
+    import flowsim
 
     SEED = 522
-    return Model, SEED, best_fit, compare, go, mo, np, pl, sampler, st
+    return SEED, flowsim, go, mo, np, pl, st
 
 
 @app.cell(hide_code=True)
@@ -41,8 +41,8 @@ def _(mo):
     5. Compare rack sizes on the same simulated days.
 
     The folder holds three things, i.e., `flowsim/` (the simulation library), `data/` (the shop's
-    files), and this notebook. Because `flowsim/` sits next to the notebook, `from flowsim
-    import ...` works with no installation.
+    files), and this notebook. Because `flowsim/` sits next to the notebook, `import flowsim`
+    works with no installation, and every FlowSim function is called as `flowsim.<name>`.
     """)
     return
 
@@ -166,8 +166,12 @@ def _(mo):
 
 
 @app.cell
-def _(best_fit, samples):
-    free_weld_fits = best_fit(samples["Weld"], nonnegative=False)
+def _(flowsim, samples):
+    free_weld_fits = flowsim.best_fit(
+        data=samples["Weld"], 
+        nonnegative=False,
+    )
+
     free_weld_fits
     return
 
@@ -191,8 +195,12 @@ def _(mo):
 
 
 @app.cell
-def _(best_fit, samples):
-    weld_fits = best_fit(samples["Weld"])
+def _(flowsim, samples):
+    weld_fits = flowsim.best_fit(
+        data=samples["Weld"],
+        nonnegative=True,
+    )
+
     weld_fits
     return
 
@@ -200,32 +208,31 @@ def _(best_fit, samples):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Every row now starts at zero or above, and the lognormal, held at zero, falls to fourth. Now
-    look at `upper`. A finite `upper` is a ceiling that no simulated time can exceed, which
-    removes the rare long jobs that make a line back up. The first-ranked beta has a ceiling so
-    high (about 580 billion minutes) that it behaves like the gamma it ties with, but for the
-    release gap the beta's ceiling is 107 minutes.
+    Every row now starts at zero or above, and the lognormal, held at zero, falls to fourth. Since
+    no row can draw a negative time, the rule we use is simple. **Take the first row, i.e., the
+    best-fitting nonnegative family.**
 
-    The rule we use is simple. **Take the highest-ranked family with no ceiling (`upper` is
-    infinite).** The plot shows the data with the top three fits and the one the rule chose, for
-    any input.
+    Still read `upper` before using the fit. A finite `upper` is a ceiling that no simulated time
+    can exceed. For Weld, the first-ranked beta has a ceiling so high (about 580 billion minutes)
+    that it behaves like the gamma it ties with. For the release gap, the beta's ceiling is 107
+    minutes, nearly three times the longest gap in the data (38 minutes), so it removes nothing the
+    shop has seen. A ceiling close to the largest observation would be a reason to take the next
+    row. The plot shows the data with the top three fits for any input.
     """)
     return
 
 
 @app.cell
-def _(pl):
-    def choose(fits):
-        # The highest-ranked family with no ceiling on its draws.
-        return fits.filter(pl.col("upper").is_infinite()).row(0, named=True)
+def _(flowsim, samples):
+    fits = {
+        name: flowsim.best_fit(data=values, nonnegative=True)
+        for name, values in samples.items()
+    }
+    # With nonnegative=True, every row starts at zero or above, so the best
+    # nonnegative fit is simply the first row (rank 1).
+    chosen = {name: table.row(0, named=True) for name, table in fits.items()}
 
-    return (choose,)
-
-
-@app.cell
-def _(best_fit, choose, samples):
-    fits = {name: best_fit(values) for name, values in samples.items()}
-    chosen = {name: choose(table) for name, table in fits.items()}
+    fits
     return chosen, fits
 
 
@@ -277,9 +284,9 @@ def _(chosen, fits, go, input_picker, np, samples, st):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    The table lists the family the rule chose for each input. The release gap comes out
-    exponential (second, behind the beta with a ceiling), which is what releases at random
-    moments through the day produce, and its CV near 1 says the same thing.
+    The table lists the family the rule chose for each input. Two of the four are betas held at
+    zero, and the exponential, which is what releases at random moments through the day produce,
+    is a close second for the release gap (KS 0.018 against 0.014).
     """)
     return
 
@@ -308,7 +315,7 @@ def _(mo):
     mo.md(r"""
     ## Step 3, turn a fit into a sampler
 
-    `sampler(family, params)` returns a function. Each time we call it with a random-number
+    `flowsim.sampler(family, params)` returns a function. Each time we call it with a random-number
     generator, it returns one draw from the fitted distribution. FlowSim calls it the same way
     every time a job starts at a station, so a sampler is how a fitted distribution gets into
     the model. The generator is created from a seed, so the same seed gives the same draws.
@@ -317,8 +324,8 @@ def _(mo):
 
 
 @app.cell
-def _(SEED, chosen, np, sampler):
-    weld_time = sampler(
+def _(SEED, chosen, flowsim, np):
+    weld_time = flowsim.sampler(
         family=chosen["Weld"]["family"],
         params=chosen["Weld"]["params"],
     )
@@ -386,18 +393,18 @@ def _():
 
 
 @app.cell
-def _(Model, TIME_UNIT):
+def _(TIME_UNIT, flowsim):
     # Block 1. An empty model.
-    model = Model(time_unit=TIME_UNIT)
+    model = flowsim.Model(time_unit=TIME_UNIT)
     return (model,)
 
 
 @app.cell
-def _(chosen, model, sampler):
+def _(chosen, flowsim, model):
     # Block 2. Jobs released to the line, one release gap at a time.
     jobs = model.source(
         name="Jobs",
-        interarrival=sampler(
+        interarrival=flowsim.sampler(
             family=chosen["Release gap"]["family"],
             params=chosen["Release gap"]["params"],
         ),
@@ -406,12 +413,12 @@ def _(chosen, model, sampler):
 
 
 @app.cell
-def _(chosen, model, sampler):
+def _(chosen, flowsim, model):
     # Block 3. Cut, one machine. Released jobs wait in front of it with no limit on space.
     cut = model.station(
         name="Cut",
         capacity=1,
-        service_time=sampler(
+        service_time=flowsim.sampler(
             family=chosen["Cut"]["family"],
             params=chosen["Cut"]["params"],
         ),
@@ -420,12 +427,12 @@ def _(chosen, model, sampler):
 
 
 @app.cell
-def _(WELD_RACK, chosen, model, sampler):
+def _(WELD_RACK, chosen, flowsim, model):
     # Block 4. Weld, one machine, with a rack of WELD_RACK spaces in front of it.
     weld = model.station(
         name="Weld",
         capacity=1,
-        service_time=sampler(
+        service_time=flowsim.sampler(
             family=chosen["Weld"]["family"],
             params=chosen["Weld"]["params"],
         ),
@@ -436,12 +443,12 @@ def _(WELD_RACK, chosen, model, sampler):
 
 
 @app.cell
-def _(PAINT_RACK, chosen, model, sampler):
+def _(PAINT_RACK, chosen, flowsim, model):
     # Block 5. Paint, one machine, with a rack of PAINT_RACK spaces in front of it.
     paint = model.station(
         name="Paint",
         capacity=1,
-        service_time=sampler(
+        service_time=flowsim.sampler(
             family=chosen["Paint"]["family"],
             params=chosen["Paint"]["params"],
         ),
@@ -567,7 +574,7 @@ def _(mo):
     ## Step 7, compare rack sizes
 
     Each rack plan needs its own model, so `build_line` repeats Blocks 1 to 6 with the plan's
-    rack sizes. `compare` then runs every plan on the *same* simulated days (the same releases
+    rack sizes. `flowsim.compare` then runs every plan on the *same* simulated days (the same releases
     and processing times), so a difference between two plans comes from the racks and not from
     luck. Each plan is a pair (Weld rack, Paint rack).
     """)
@@ -575,12 +582,12 @@ def _(mo):
 
 
 @app.cell
-def _(Model, TIME_UNIT, chosen, sampler):
+def _(TIME_UNIT, chosen, flowsim):
     def build_line(weld_rack, paint_rack):
-        line = Model(time_unit=TIME_UNIT)
+        line = flowsim.Model(time_unit=TIME_UNIT)
         line_jobs = line.source(
             name="Jobs",
-            interarrival=sampler(
+            interarrival=flowsim.sampler(
                 family=chosen["Release gap"]["family"],
                 params=chosen["Release gap"]["params"],
             ),
@@ -588,7 +595,7 @@ def _(Model, TIME_UNIT, chosen, sampler):
         line_cut = line.station(
             name="Cut",
             capacity=1,
-            service_time=sampler(
+            service_time=flowsim.sampler(
                 family=chosen["Cut"]["family"],
                 params=chosen["Cut"]["params"],
             ),
@@ -596,7 +603,7 @@ def _(Model, TIME_UNIT, chosen, sampler):
         line_weld = line.station(
             name="Weld",
             capacity=1,
-            service_time=sampler(
+            service_time=flowsim.sampler(
                 family=chosen["Weld"]["family"],
                 params=chosen["Weld"]["params"],
             ),
@@ -606,7 +613,7 @@ def _(Model, TIME_UNIT, chosen, sampler):
         line_paint = line.station(
             name="Paint",
             capacity=1,
-            service_time=sampler(
+            service_time=flowsim.sampler(
                 family=chosen["Paint"]["family"],
                 params=chosen["Paint"]["params"],
             ),
@@ -620,7 +627,7 @@ def _(Model, TIME_UNIT, chosen, sampler):
 
 
 @app.cell
-def _(REPLICATIONS, SEED, SHIFT_MINUTES, build_line, compare):
+def _(REPLICATIONS, SEED, SHIFT_MINUTES, build_line, flowsim):
     RACK_PLANS = {
         "No racks": (0, 0),
         "1 and 1": (1, 1),
@@ -629,7 +636,7 @@ def _(REPLICATIONS, SEED, SHIFT_MINUTES, build_line, compare):
         "8 and 8": (8, 8),
     }
 
-    comparison = compare(
+    comparison = flowsim.compare(
         scenarios={
             name: build_line(weld_rack=weld_rack, paint_rack=paint_rack)
             for name, (weld_rack, paint_rack) in RACK_PLANS.items()
@@ -703,7 +710,7 @@ def _(mo):
     1. The line has four rack spaces in total. Add `"4 and 0": (4, 0)` and `"0 and 4": (0, 4)`
        to `RACK_PLANS`. Which machine is blocked in each plan, and which plan finishes more
        jobs than `"2 and 2"`?
-    2. In `build_line`, replace Weld's `service_time=sampler(...)` with a constant, i.e.,
+    2. In `build_line`, replace Weld's `service_time=flowsim.sampler(...)` with a constant, i.e.,
        `service_time=4.56` (the mean of the fitted Weld times). Does the line still need racks?
     3. Set `WELD_RACK = 0` in the settings cell and look at the resource plot for one day. When
        is Cut blocked?

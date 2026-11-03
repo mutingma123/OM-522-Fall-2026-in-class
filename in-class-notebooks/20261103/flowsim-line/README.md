@@ -22,7 +22,8 @@ pixi run demo
 2. Fits eight common distribution families to each input with `best_fit`. It shows first that
    SciPy's free fit of Weld can start below zero (and so draw a negative time, which stops a
    FlowSim run), then that `best_fit` by default refits such a family at zero and marks it in
-   `loc_fixed`. It keeps the highest-ranked family with no ceiling (`upper` is infinite).
+   `loc_fixed`. It takes the first row, i.e., the best-fitting nonnegative family, and checks
+   its `upper` for a ceiling near the data.
 3. Turns each fit into a sampler with `sampler` and checks 10,000 draws against the data.
 4. Builds the line one FlowSim call per cell, runs one shift, and then 100 shifts.
 5. Compares five rack plans on the same simulated shifts with `compare`.
