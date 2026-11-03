@@ -539,6 +539,40 @@ def _(one_day):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
+    ### What else is in a run?
+
+    The tables and plots above are a few of the things a run holds. `mo.inspect` lists all of
+    them, i.e., the tables (`summary`, `stations`, `customers`, `visits`, and others), the plots
+    (each name ending in `_plot`), and the run's settings (`duration`, `drain`, `seed`). Inspect
+    the run itself (`one_day`), since its tables exist only after the run finishes. The second
+    table lists the metrics that `intervals` averages over many days, with a short definition of
+    each. A `system` metric is a column of `summary` and a `station` metric is a column of
+    `stations`, and both tables also hold plain counts such as `arrivals` and `max_queue`.
+    """)
+    return
+
+
+@app.cell
+def _(mo, one_day):
+    mo.inspect(one_day, methods=True)
+    return
+
+
+@app.cell
+def _(flowsim, pl):
+    pl.DataFrame(
+        [
+            {"metric": name, "scope": metric.scope, "label": metric.label}
+            for name, metric in flowsim.results.METRICS.items()
+            if metric.scope != "stock_point"
+        ]
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
     ## Step 6, many days instead of one
 
     One day is one draw of the release gaps and processing times, and the next day will differ.
