@@ -71,11 +71,11 @@ OM-522-Fall-2026-in-class/
 │   │   └── data-samples/
 │   ├── 20261103/
 │   │   ├── README.md
-│   │   ├── stress_test.py
-│   │   └── data-samples/
-│   ├── 20261105/
-│   │   ├── README.md
-│   │   └── variability_investigation.py
+│   │   ├── production_line.py
+│   │   ├── data/
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -255,13 +255,13 @@ pixi run demo
 The [distribution fitting guide](in-class-notebooks/20261022/README.md)
 describes the eight data files and what each part of the notebook shows.
 
-## Stress test demo
+## FlowSim production line
 
-The November 3 demo wraps the October 22 search in one function that ranks
-eight common families by the one-sample Kolmogorov-Smirnov statistic, then runs two
-fixed single-machine plans through 30 saved scenarios of uncertain processing
-times, which is the protocol of the final project's stress test. Run its
-commands from the `20261103` directory:
+The November 3 demo builds a three-station production line (Cut, Weld, Paint)
+in FlowSim from ten days of shop data and compares rack sizes between the
+stations. The folder has its own environment and a copy of FlowSim, so the
+root environment cannot run it. Run its commands from the `20261103`
+directory:
 
 ```bash
 cd in-class-notebooks/20261103
@@ -269,14 +269,8 @@ pixi install
 pixi run demo
 ```
 
-The [stress test guide](in-class-notebooks/20261103/README.md) describes the
-two plans and the scenario file.
-
-## Variability investigation
-
-The November 5 investigation runs inside the FlowSim folder rather than in an
-environment of its own. The [investigation guide](in-class-notebooks/20261105/README.md)
-describes where to copy the notebook and how to run it.
+The [production line guide](in-class-notebooks/20261103/README.md) describes
+the data files and what each part of the notebook shows.
 
 ## Single-machine instance generation
 

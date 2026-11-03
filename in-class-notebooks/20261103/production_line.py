@@ -60,14 +60,16 @@ def _(mo):
 
 
 @app.cell
-def _(pl):
+def _(mo, pl):
+    data_dir = mo.notebook_dir() / "data"
+
     release_data = pl.read_csv(
-        "data/releases.csv", 
+        data_dir / "releases.csv",
         try_parse_dates=True,
     )
     print(f'{release_data.shape = }')
 
-    processing_data = pl.read_csv("data/processing_times.csv")
+    processing_data = pl.read_csv(data_dir / "processing_times.csv")
     print(f'{processing_data.shape = }')
     return processing_data, release_data
 

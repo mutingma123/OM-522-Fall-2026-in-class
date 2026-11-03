@@ -1,39 +1,31 @@
-# OM 522 Stress Test of Fixed Plans
+# OM 522 FlowSim production line, November 3
 
-The final project tests how each method's plan holds up when the data are not exact. This
-notebook wraps the October 22 distribution search in one function, then runs two fixed plans for
-one machine through 30 saved scenarios of uncertain processing times.
+This folder builds a three-station production line (Cut, Weld, Paint) in FlowSim from shop data,
+and compares rack sizes between the machines. It holds three things:
 
-## Run the demo
+- `flowsim/`, a copy of the FlowSim library (version 0.3.0), so the notebook imports it with
+  `from flowsim import ...` and nothing needs installing beyond the environment below;
+- `data/`, ten days of shop data, i.e., `releases.csv` (when each job was released to the line)
+  and `processing_times.csv` (minutes per job at each station);
+- `production_line.py`, the Marimo notebook.
+
+## Run it
 
 ```bash
 pixi install
 pixi run demo
 ```
 
-Check the notebook without changing it with:
+## What the notebook does
 
-```bash
-pixi run check
-```
+1. Reads the two files and computes the time between releases within each day.
+2. Fits eight common distribution families to each input with `best_fit`. It shows first that
+   SciPy's free fit of Weld can start below zero (and so draw a negative time, which stops a
+   FlowSim run), then that `best_fit` by default refits such a family at zero and marks it in
+   `loc_fixed`. It takes the first row, i.e., the best-fitting nonnegative family, and checks
+   its `upper` for a ceiling near the data.
+3. Turns each fit into a sampler with `sampler` and checks 10,000 draws against the data.
+4. Builds the line one FlowSim call per cell, runs one shift, and then 100 shifts.
+5. Compares five rack plans on the same simulated shifts with `compare`.
 
-## What the notebook shows
-
-`stress_test.py` has three parts.
-
-1. `best_fit(data, families)` fits eight common families (normal, lognormal, uniform,
-   triangular, exponential, gamma, Weibull, and beta) to a data file and ranks them by the
-   one-sample Kolmogorov-Smirnov statistic against the fitted CDF. The statistic uses no random
-   draws, so the ranking is the same on every run. The eight files in `data-samples/` are the
-   October 22 files. FlowSim 0.2.0 has the same search (`flowsim.best_fit`) and turns a fitted
-   row into a duration sampler (`flowsim.sampler`), so a team can fit project data and simulate
-   with it in one environment.
-2. Eight jobs on one machine have two fixed plans, the earliest due date (EDD) sequence and the
-   sequence that pairwise interchange reaches from it. `execute` runs a plan as early as the
-   processing times allow and reports total tardiness, maximum lateness, and whether any job is
-   more than 20 minutes late.
-3. Each processing time is multiplied by an independent lognormal factor with mean 1 and
-   coefficient of variation 0.2. The notebook draws 30 scenarios from seed 522, saves them to
-   `scenarios.csv`, reads them back, runs both plans unchanged through every scenario, and reports
-   the mean, the 90th percentile, the count of scenarios that break the limit, and a per-scenario
-   plot.
+A full run takes about 20 seconds.
