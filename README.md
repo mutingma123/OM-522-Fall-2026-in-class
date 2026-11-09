@@ -76,6 +76,13 @@ OM-522-Fall-2026-in-class/
 │   │   ├── flowsim/
 │   │   ├── pixi.toml
 │   │   └── pixi.lock
+│   ├── 20261110/
+│   │   ├── README.md
+│   │   ├── stress_test.py
+│   │   ├── variability_investigation.py
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -271,6 +278,22 @@ pixi run demo
 
 The [production line guide](in-class-notebooks/20261103/README.md) describes
 the data files and what each part of the notebook shows.
+
+## Stress test and Quiz 3
+
+The November 10 folder holds the stress test example that the final submission
+requires and the Quiz 3 notebook. It also has its own environment and a copy of
+FlowSim. Run its commands from the `20261110` directory:
+
+```bash
+cd in-class-notebooks/20261110
+pixi install
+pixi run stress-test
+pixi run quiz3
+```
+
+The [November 10 guide](in-class-notebooks/20261110/README.md) describes both
+notebooks.
 
 ## Single-machine instance generation
 

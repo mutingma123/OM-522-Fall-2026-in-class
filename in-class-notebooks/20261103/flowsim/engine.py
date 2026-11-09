@@ -7,13 +7,14 @@ import zlib
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
+from numbers import Real
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from flowsim.results import (
+from flowsim.distributions import Distribution, Shifted
+from flowsim.records import (
     SUPPLIER,
-    Results,
     Status,
     _Activity,
     _Customer,
@@ -23,6 +24,7 @@ from flowsim.results import (
     _State,
     _Visit,
 )
+from flowsim.results import Results, SupplySettings
 from flowsim.scheduler import Event, Scheduler
 from flowsim.schedules import next_arrival
 from flowsim.station import _Station
@@ -30,6 +32,7 @@ from flowsim.validation import sample
 
 if TYPE_CHECKING:
     from flowsim.model import Model, Node
+    from flowsim.policies import OrderUpTo
 
 # The scheduler processes events at equal times by priority, then in the order
 # they were queued. Shift changes come first (the scheduler's SHIFT_PRIORITY, 1).
@@ -90,6 +93,8 @@ class _Stock:
     """
 
     node: Node
+    # The node's policy, which Model.stock_point requires.
+    policy: OrderUpTo
     cover: float
     rng: np.random.Generator
     on_hand: float
@@ -110,6 +115,56 @@ class _Same:
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, _Same) and other.value is self.value
+
+
+# Modules whose Distribution classes have a spec() that rebuilds them.
+_BUILT_IN = ("flowsim.distributions", "flowsim.fitting")
+
+
+def _spec(value: object) -> object:
+    """Encode a duration for export: a number, a distribution's repr, or a marker."""
+    if value is None:
+        return None
+    # A built-in distribution records its constructor and full-precision
+    # arguments, and a fit records its fitted distribution's. Any other
+    # callable, including a user's own subclass, cannot be rebuilt from the
+    # export.
+    if isinstance(value, Shifted):
+        # A shift is rebuildable only when the distribution it shifts is.
+        inner = _spec(value.distribution)
+        return value.spec() if isinstance(inner, dict) else inner
+    if isinstance(value, Distribution) and type(value).__module__ in _BUILT_IN:
+        return value.spec()
+    if isinstance(value, Mapping):
+        return {kind: _spec(item) for kind, item in value.items()}
+    if callable(value):
+        return "<function>"
+    # validation.number accepted a constant duration as a Real.
+    assert isinstance(value, Real)
+    return float(value)
+
+
+def _has_function(spec: object) -> bool:
+    if isinstance(spec, dict):
+        return any(_has_function(item) for item in spec.values())
+    return spec == "<function>"
+
+
+def _node_specs(node) -> dict:
+    """The distribution settings and reconstructibility of a source or station."""
+    specs = {
+        "interarrival": _spec(node.interarrival),
+        "service_time": _spec(node.service_time),
+        "patience": _spec(node.patience),
+        "time_to_failure": _spec(node.time_to_failure),
+        "repair_time": _spec(node.repair_time),
+    }
+    return {
+        **specs,
+        "first_arrival": node.first_arrival,
+        "limit": node.limit,
+        "reconstructible": not any(_has_function(spec) for spec in specs.values()),
+    }
 
 
 class _Run:
@@ -204,19 +259,25 @@ class _Run:
         # A constant lead time is a whole number of periods, which Model.supply
         # checks, so rounding removes floating-point remainders from its cover.
         # A sampled lead time and production both require an explicit cover.
-        self.stocks = [
-            _Stock(
-                node=node,
-                cover=(
-                    round(node.lead_time / chain.period)
-                    if node.policy.cover is None
-                    else node.policy.cover
-                ),
-                rng=self.streams[node.name].durations,
-                on_hand=node.initial,
+        self.stocks: list[_Stock] = []
+        for node in () if chain is None else chain.stock_points:
+            # Model.stock_point sets the policy and initial stock at every one.
+            policy = node.policy
+            assert policy is not None and node.initial is not None
+            cover = policy.cover
+            if cover is None:
+                assert chain is not None
+                assert node.lead_time is not None and not callable(node.lead_time)
+                cover = round(node.lead_time / chain.period)
+            self.stocks.append(
+                _Stock(
+                    node=node,
+                    policy=policy,
+                    cover=cover,
+                    rng=self.streams[node.name].durations,
+                    on_hand=node.initial,
+                )
             )
-            for node in ([] if chain is None else chain.stock_points)
-        ]
 
     def settled(self) -> Event:
         """Wake after every other event at the current time."""
@@ -291,6 +352,8 @@ class _Run:
                 horizon=self.duration,
                 rng=rng,
             )
+        # Model.source requires interarrival or arrival_rates.
+        assert node.interarrival is not None
         gap = sample(
             distribution=node.interarrival,
             rng=rng,
@@ -309,10 +372,11 @@ class _Run:
 
     def source(self, node: Node):
         rng = self.streams[node.name].durations
-        kinds = None if node.types is None else list(node.types)
+        types = node.types
+        kinds = None if types is None else list(types)
         weights = None
-        if kinds is not None and len(kinds) > 1:
-            weights = np.asarray(list(node.types.values()), dtype=float)
+        if types is not None and len(types) > 1:
+            weights = np.asarray(list(types.values()), dtype=float)
             weights /= weights.sum()
         if node.limit == 0:
             return
@@ -328,7 +392,7 @@ class _Run:
             )
             # A source with one type draws nothing for it.
             kind = None
-            if weights is not None:
+            if kinds is not None and weights is not None:
                 kind = kinds[
                     self.streams[node.name].types.choice(len(kinds), p=weights)
                 ]
@@ -370,6 +434,8 @@ class _Run:
                     break
                 downstream = self.stations[destination.name]
                 next_ticket = downstream.admit(customer, external=False)
+                # admit rejects only a customer arriving from outside.
+                assert next_ticket is not None
                 yield next_ticket.admitted
                 station.release(ticket)
                 node = destination
@@ -392,6 +458,7 @@ class _Run:
     def supply(self):
         """Review every stock point once per period, from the retailer upward."""
         chain = self.model.supply_chain
+        assert chain is not None  # run() starts this process only for a chain.
         period = 0
         while period * chain.period < self.duration:
             yield self.scheduler.timeout(
@@ -409,6 +476,7 @@ class _Run:
         order quantity just set below it.
         """
         chain = self.model.supply_chain
+        assert chain is not None and chain.demand.per_period is not None
         time = period * chain.period
         consumers = sample(
             distribution=chain.demand.per_period,
@@ -451,7 +519,7 @@ class _Run:
             stock.history.append(
                 consumers if stock.node.forecast_from == "end_demand" else incoming
             )
-            forecast, target = stock.node.policy.target(stock.history, stock.cover)
+            forecast, target = stock.policy.target(stock.history, stock.cover)
             position = stock.on_hand + stock.on_order - stock.backorders
             order = max(0.0, target - position)
             stock.on_order += order
@@ -492,6 +560,7 @@ class _Run:
         Each job holds batch_size units except the last, which holds the rest.
         """
         size = node.batch_size
+        assert size is not None  # Model.stock_point requires it for production.
         # The tolerance keeps an order of exactly k batches, computed in
         # floating point, from adding a k + 1st job of almost nothing.
         jobs = max(1, math.ceil(quantity / size - 1e-9))
@@ -514,7 +583,9 @@ class _Run:
         receiver.
         """
         node = receiver.node
-        length = self.model.supply_chain.period
+        chain = self.model.supply_chain
+        assert chain is not None
+        length = chain.period
         if callable(node.lead_time):
             lead_time = sample(
                 distribution=node.lead_time,
@@ -526,7 +597,10 @@ class _Run:
             # floating point, from rounding up to k + 1.
             periods = max(1, math.ceil(lead_time / length - 1e-9))
         else:
+            # Only the top stage produces, and review() releases its jobs
+            # instead of shipping to it.
             lead_time = node.lead_time
+            assert lead_time is not None
             periods = round(lead_time / length)
         due = period + periods
         if receiver.pipeline:
@@ -541,33 +615,52 @@ class _Run:
         self.shipments.append(shipment)
         receiver.pipeline.append((due, shipment))
 
-    def supply_settings(self) -> dict | None:
+    def supply_settings(self) -> SupplySettings | None:
         chain = self.model.supply_chain
         if chain is None:
             return None
-        return {
-            "chain": [chain.demand.name, *[node.name for node in chain.stock_points]],
-            "period": chain.period,
-            "stock_points": {
+        return SupplySettings(
+            chain=(chain.demand.name, *[node.name for node in chain.stock_points]),
+            period=chain.period,
+            stock_points={
                 stock.node.name: {
                     "initial": stock.node.initial,
                     "lead_time": (
                         "production"
                         if stock.node.lead_time is None
-                        else "sampled"
-                        if callable(stock.node.lead_time)
-                        else stock.node.lead_time
+                        else _spec(stock.node.lead_time)
                     ),
                     "batch_size": stock.node.batch_size,
                     "cover": stock.cover,
                     "shortage": stock.node.shortage,
                     "forecast_from": stock.node.forecast_from,
-                    "window": stock.node.policy.forecast.window,
-                    "safety_factor": stock.node.policy.safety_factor,
+                    "window": stock.policy.forecast.window,
+                    "safety_factor": stock.policy.safety_factor,
                 }
                 for stock in self.stocks
             },
-        }
+            demand=_spec(chain.demand.per_period),
+            reconstructible=not any(
+                _has_function(_spec(duration))
+                for duration in [
+                    chain.demand.per_period,
+                    *[stock.node.lead_time for stock in self.stocks],
+                ]
+            ),
+        )
+
+    def resources_vary(self) -> bool:
+        """Return whether a station has a schedule, a finite buffer, or failures.
+
+        Only stations take these arguments, and they decide whether a run view
+        draws server states.
+        """
+        return any(
+            station.node.staffing is not None
+            or station.node.buffer is not None
+            or station.node.time_to_failure is not None
+            for station in self.stations.values()
+        )
 
     def execute(self) -> Results:
         for node in self.model.nodes.values():
@@ -617,10 +710,12 @@ class _Run:
                     "priority": None if node.priority is None else dict(node.priority),
                     "abandon_from": node.abandon_from,
                     "failures_enabled": node.time_to_failure is not None,
+                    **_node_specs(node),
                 }
                 for name, node in self.model.nodes.items()
                 if node.kind in {"source", "station", "exit"}
             },
+            resources_vary=self.resources_vary(),
             capacities={
                 name: station.node.capacity for name, station in self.stations.items()
             },

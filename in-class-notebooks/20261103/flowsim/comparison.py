@@ -2,38 +2,67 @@
 
 from __future__ import annotations
 
-import html
-import re
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 
-import numpy as np
 import plotly.graph_objects as go
 import polars as pl
 
+from flowsim.catalog import unknown
 from flowsim.model import Model
-from flowsim.plots import BLUE, label, style
-from flowsim.results import (
-    METRICS,
-    STATION_METRICS,
-    STOCK_POINT_METRICS,
-    SYSTEM_METRICS,
-    Experiment,
-    _run_settings,
-    _write_metadata,
-    confidence_level,
-    interval_estimate,
-    interval_frame,
-    metric_units,
-    write_text,
+from flowsim.reporting import (
+    comparison_differences,
+    comparison_intervals,
+    dashboard,
+    export_tables,
+    interval_figure,
+    request_metadata,
 )
+from flowsim.results import (
+    Experiment,
+    Settings,
+    _run_settings,
+    display_html,
+    display_text,
+    missing_attribute,
+    window_line,
+)
+from flowsim.viewer import Viewer
 
 
 class Comparison:
-    """Named scenarios run on the same replication seeds, for paired comparisons.
+    """Named scenarios run with matched replication seeds.
 
-    The first scenario is the baseline unless a method names another.
+    flowsim.compare returns a Comparison. Replication k of every scenario uses
+    the same spawned seed, so differences are paired by replication. The first
+    scenario is the baseline unless a method names another.
+
+    Attributes
+    ----------
+    experiments : dict of str to Experiment
+        Each scenario's experiment, in the order given.
+    baseline : str
+        Name of the first scenario, the default reference for differences.
+    settings : Settings
+        The settings every scenario shares. The seed, end time, and capacities
+        are None.
+    summary, stations, stock_points : polars.DataFrame
+        Each scenario's pooled tables stacked, with a scenario column.
+
+    The common next calls are intervals, differences, plot, viewer, and export.
+
+    Example
+    -------
+    >>> comparison = flowsim.compare(
+    ...     scenarios={"One desk": one, "Two desks": two},
+    ...     duration=480,
+    ... )
+    >>> comparison.differences("mean_total_wait")
     """
+
+    experiments: dict[str, Experiment]
+    baseline: str
 
     def __init__(self, experiments: dict[str, Experiment]):
         if len(experiments) < 2:
@@ -49,16 +78,53 @@ class Comparison:
                 "Compared scenarios need the same duration, warm-up, drain rule, "
                 "and time unit."
             )
-        self.time_unit = first.time_unit
-        self.duration = first.duration
-        self.warmup = first.warmup
-        self.drain = first.drain
+
+    def __getattr__(self, name: str) -> object:
+        if name.startswith("_"):
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
+            )
+        raise missing_attribute(self, name, {})
+
+    def __repr__(self) -> str:
+        return display_text(*self._display())
+
+    def _repr_html_(self) -> str:
+        return display_html(*self._display())
+
+    def _display(self) -> tuple[str, list[tuple[str, str]]]:
+        rows = [
+            (
+                "Scenarios" if index == 0 else "",
+                f"{name}{' (baseline)' if name == self.baseline else ''}: "
+                f"{len(experiment.runs)} replications",
+            )
+            for index, (name, experiment) in enumerate(self.experiments.items())
+        ]
+        rows += [
+            ("Settings", window_line(self.settings)),
+            ("Next", "comparison.intervals(metric), comparison.differences(metric)"),
+            ("", "comparison.plot(), comparison.viewer(), comparison.export(folder)"),
+        ]
+        return f"Comparison: {len(self.experiments)} scenarios", rows
+
+    @property
+    def settings(self) -> Settings:
+        """Return the settings every scenario shares.
+
+        The seed and end time differ by run, and capacities differ by scenario,
+        so they are None here. Each run's own settings hold them.
+        """
+        return replace(
+            self.experiments[self.baseline].settings,
+            capacities=None,
+        )
 
     # The combined tables are built from the experiments on each access, so
     # estimates and exports always read the same replication values.
     @property
     def summary(self) -> pl.DataFrame:
-        """Return every scenario's system metrics, one row per replication."""
+        """Return every scenario's pooled summary table, with a scenario column."""
         return pl.concat(
             [
                 experiment.summary.select(pl.lit(name).alias("scenario"), pl.all())
@@ -68,7 +134,7 @@ class Comparison:
 
     @property
     def stations(self) -> pl.DataFrame:
-        """Return every scenario's station metrics, one row per station and replication."""
+        """Return every scenario's pooled stations table, with a scenario column."""
         return pl.concat(
             [
                 experiment.stations.select(pl.lit(name).alias("scenario"), pl.all())
@@ -78,7 +144,7 @@ class Comparison:
 
     @property
     def stock_points(self) -> pl.DataFrame:
-        """Return every scenario's stock-point metrics, one row per stock point and replication."""
+        """Return every scenario's pooled stock_points table, with a scenario column."""
         return pl.concat(
             [
                 experiment.stock_points.select(pl.lit(name).alias("scenario"), pl.all())
@@ -86,44 +152,15 @@ class Comparison:
             ]
         )
 
-    def _values(
-        self,
-        scenario: str,
-        metric: str,
-        station: str | None,
-        stock_point: str | None = None,
-    ) -> np.ndarray:
-        if stock_point is not None:
-            if metric not in STOCK_POINT_METRICS:
-                raise ValueError(
-                    f"Choose a stock-point metric from {STOCK_POINT_METRICS}."
-                )
-            if station is not None:
-                raise ValueError("Name a station or a stock point, not both.")
-        elif metric in STOCK_POINT_METRICS:
-            raise ValueError(
-                f"{metric!r} is a stock-point metric, so name a stock point."
-            )
-        elif station is None and metric not in SYSTEM_METRICS:
-            raise ValueError(
-                f"Choose a system metric from {SYSTEM_METRICS}, "
-                "or name a station for a station metric."
-            )
-        if station is not None and metric not in STATION_METRICS:
-            raise ValueError(f"Choose a station metric from {STATION_METRICS}.")
-        try:
-            return self.experiments[scenario]._values(
-                metric=metric,
-                station=station,
-                stock_point=stock_point,
-            )
-        except ValueError as error:
-            raise ValueError(f"Scenario {scenario!r}: {error}") from None
-
     def _reference(self, baseline: str | None) -> str:
         reference = self.baseline if baseline is None else baseline
         if reference not in self.experiments:
-            raise ValueError(f"Unknown baseline scenario {reference!r}.")
+            raise unknown(
+                kind="baseline scenario",
+                name=reference,
+                choices=list(self.experiments),
+                intro=f"Unknown baseline scenario {reference!r}.",
+            )
         return reference
 
     def intervals(
@@ -134,29 +171,37 @@ class Comparison:
         stock_point: str | None = None,
         confidence: float = 0.95,
     ) -> pl.DataFrame:
-        """Estimate a metric's mean in each scenario with a Student t interval."""
-        level = confidence_level(confidence)
-        rows = []
-        for name, experiment in self.experiments.items():
-            values = self._values(
-                scenario=name,
-                metric=metric,
-                station=station,
-                stock_point=stock_point,
-            )
-            rows.append(
-                {
-                    "scenario": name,
-                    "metric": metric,
-                    **_location(station, stock_point),
-                    "runs": len(experiment.runs),
-                    **interval_estimate(values, level),
-                    "confidence": level,
-                }
-            )
-        return interval_frame(
-            rows=rows,
-            keys=["scenario", "metric", *_location(station, stock_point)],
+        """Estimate a metric in each scenario with Student t intervals.
+
+        The rows follow Experiment.intervals within each scenario, so a station
+        metric without station= gives one row per station per scenario.
+
+        Parameters
+        ----------
+        metric : str, default 'mean_total_wait'
+            A replication metric name from flowsim.metrics().
+        station : str, optional
+            Station to report, for a station metric.
+        stock_point : str, optional
+            Stock point to report, for a stock-point metric.
+        confidence : float, default 0.95
+            Confidence level of the interval, strictly between 0 and 1.
+
+        Returns
+        -------
+        polars.DataFrame
+            One row per scenario and location with the mean and interval limits.
+
+        Example
+        -------
+        >>> comparison.intervals("utilization", station="Desk")
+        """
+        return comparison_intervals(
+            experiments=self.experiments,
+            metric=metric,
+            station=station,
+            stock_point=stock_point,
+            confidence=confidence,
         )
 
     def differences(
@@ -168,44 +213,41 @@ class Comparison:
         stock_point: str | None = None,
         confidence: float = 0.95,
     ) -> pl.DataFrame:
-        """Estimate each scenario minus the baseline, paired by replication."""
-        reference = self._reference(baseline)
-        level = confidence_level(confidence)
-        baseline_values = self._values(
-            scenario=reference,
+        """Estimate each scenario minus the baseline within matched replications.
+
+        A station or stock-point metric without a location gives one row per
+        location that the scenario shares with the baseline.
+
+        Parameters
+        ----------
+        metric : str, default 'mean_total_wait'
+            A replication metric name from flowsim.metrics().
+        baseline : str, optional
+            Name of the reference scenario. Without it, the first scenario.
+        station : str, optional
+            Station to report, for a station metric.
+        stock_point : str, optional
+            Stock point to report, for a stock-point metric.
+        confidence : float, default 0.95
+            Confidence level of the interval, strictly between 0 and 1.
+
+        Returns
+        -------
+        polars.DataFrame
+            One row per scenario and location with the mean paired difference
+            (scenario minus baseline) and its interval.
+
+        Example
+        -------
+        >>> comparison.differences("mean_total_wait", baseline="One desk")
+        """
+        return comparison_differences(
+            experiments=self.experiments,
+            reference=self._reference(baseline),
             metric=metric,
             station=station,
             stock_point=stock_point,
-        )
-        baseline_seeds = [run.seed for run in self.experiments[reference].runs]
-        rows = []
-        for name, experiment in self.experiments.items():
-            if name == reference:
-                continue
-            values = self._values(
-                scenario=name,
-                metric=metric,
-                station=station,
-                stock_point=stock_point,
-            )
-            if [run.seed for run in experiment.runs] != baseline_seeds:
-                raise ValueError("Paired scenarios need identical replication seeds.")
-            # Subtract within each matched replication before estimating error.
-            # A missing result excludes that pair, not unrelated observations.
-            rows.append(
-                {
-                    "scenario": name,
-                    "baseline": reference,
-                    "metric": metric,
-                    **_location(station, stock_point),
-                    "runs": len(experiment.runs),
-                    **interval_estimate(values - baseline_values, level),
-                    "confidence": level,
-                }
-            )
-        return interval_frame(
-            rows=rows,
-            keys=["scenario", "baseline", "metric", *_location(station, stock_point)],
+            confidence=confidence,
         )
 
     def plot(
@@ -218,7 +260,33 @@ class Comparison:
         differences: bool = False,
         baseline: str | None = None,
     ) -> go.Figure:
-        """Plot each scenario's interval, or its paired difference from the baseline."""
+        """Plot each scenario's interval, or its paired difference from the baseline.
+
+        Parameters
+        ----------
+        metric : str, default 'mean_total_wait'
+            A replication metric name from flowsim.metrics().
+        station : str, optional
+            Station to plot, for a station metric.
+        stock_point : str, optional
+            Stock point to plot, for a stock-point metric.
+        confidence : float, default 0.95
+            Confidence level of the interval, strictly between 0 and 1.
+        differences : bool, default False
+            Whether to plot paired differences from the baseline instead of each
+            scenario's own interval.
+        baseline : str, optional
+            Reference scenario for differences. Without it, the first scenario.
+
+        Returns
+        -------
+        plotly.graph_objects.Figure
+            The interval figure.
+
+        Example
+        -------
+        >>> comparison.plot("mean_total_wait", differences=True).show()
+        """
         table = (
             self.differences(
                 metric=metric,
@@ -235,58 +303,12 @@ class Comparison:
                 confidence=confidence,
             )
         )
-        rows = table.to_dicts()
-        figure = go.Figure(
-            go.Scatter(
-                x=[row["mean"] for row in rows],
-                y=[label(row["scenario"]) for row in rows],
-                mode="markers",
-                marker={
-                    "size": 12,
-                    "color": BLUE,
-                    "line": {"color": "black", "width": 1},
-                },
-                error_x={
-                    "type": "data",
-                    "array": [
-                        None if row["upper"] is None else row["upper"] - row["mean"]
-                        for row in rows
-                    ],
-                    "thickness": 2.5,
-                    "width": 5,
-                },
-                hovertemplate="%{y}<br>Estimate: %{x:.3f}<extra></extra>",
-            )
+        return interval_figure(
+            table=table,
+            metric=metric,
+            time_unit=self.settings.time_unit,
+            differences=differences,
         )
-        fraction = METRICS[metric].kind == "fraction"
-        axis_label = METRICS[metric].label
-        if not fraction:
-            axis_label += f" ({metric_units(metric, self.time_unit)})"
-        if differences:
-            axis_label = "Difference in " + axis_label[0].lower() + axis_label[1:]
-        style(
-            figure=figure,
-            x_label=axis_label,
-            y_label="Scenario",
-        )
-        figure.update_layout(
-            height=max(240, 150 + 50 * len(rows)),
-            margin={"l": 155, "r": 35, "t": 35, "b": 80},
-        )
-        # List scenarios top to bottom in the order they were defined.
-        figure.update_yaxes(
-            autorange="reversed",
-            automargin=True,
-        )
-        if fraction:
-            figure.update_xaxes(tickformat=".0%")
-        if differences:
-            figure.add_vline(
-                x=0,
-                line_color="#667085",
-                line_dash="dash",
-            )
-        return figure
 
     def viewer(
         self,
@@ -297,106 +319,70 @@ class Comparison:
         stock_point: str | None = None,
         confidence: float = 0.95,
         baseline: str | None = None,
-    ) -> str:
-        """Return an offline HTML page of the intervals and differences, optionally saving it."""
+    ) -> Viewer:
+        """Build the offline comparison dashboard, saved to path if given.
+
+        A menu chooses among every replication metric that applies to some
+        scenario, another chooses the location for a station or stock-point
+        metric, and a third chooses the baseline. The page shows each
+        scenario's interval, the paired differences from the baseline, and each
+        replication's value. When the runs kept their records, selecting a
+        scenario's replication opens that run's single-run view on the same
+        page, and with keep_records=False the page shows the overview only.
+        The arguments set the metric, location, and baseline shown first.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path, optional
+            File to save the page to. Without it, nothing is written.
+        metric : str, default 'mean_total_wait'
+            The replication metric shown first, a name from flowsim.metrics().
+        station : str, optional
+            Station shown first, for a station metric. Without it, the first.
+        stock_point : str, optional
+            Stock point shown first, for a stock-point metric. Without it, the
+            first.
+        confidence : float, default 0.95
+            Confidence level of every interval, strictly between 0 and 1.
+        baseline : str, optional
+            Reference scenario shown first. Without it, the first scenario.
+
+        Returns
+        -------
+        Viewer
+            The page.
+
+        Example
+        -------
+        >>> comparison.viewer("output/comparison.html", metric="overtime")
+        """
         reference = self._reference(baseline)
-        means = self.plot(
+        # Check the request as intervals() and differences() do, before
+        # building the page.
+        self.differences(
             metric=metric,
-            station=station,
-            stock_point=stock_point,
-            confidence=confidence,
-        )
-        changes = self.plot(
-            metric=metric,
-            station=station,
-            stock_point=stock_point,
-            confidence=confidence,
-            differences=True,
             baseline=reference,
-        )
-        # plots.style sets an 800-pixel width, so let each card set the width.
-        for figure in (means, changes):
-            figure.update_layout(width=None, autosize=True)
-        means_html = means.to_html(
-            full_html=False,
-            include_plotlyjs=True,
-            div_id="scenario-means",
-        )
-        changes_html = changes.to_html(
-            full_html=False,
-            include_plotlyjs=False,
-            div_id="scenario-differences",
-        )
-        table = self.intervals(
-            metric=metric,
             station=station,
             stock_point=stock_point,
             confidence=confidence,
         )
-        fraction = METRICS[metric].kind == "fraction"
-
-        def cell(row: dict, key: str) -> str:
-            if row["mean"] is None:
-                return "Not observed"
-            if row[key] is None:
-                return "Needs two runs"
-            return f"{row[key]:.1%}" if fraction else f"{row[key]:.3f}"
-
-        table_rows = ""
-        for row in table.to_dicts():
-            cells = [
-                html.escape(row["scenario"]),
-                *[cell(row, key) for key in ["mean", "lower", "upper"]],
-                str(row["observed_runs"]),
-            ]
-            table_rows += (
-                "<tr>" + "".join(f"<td>{value}</td>" for value in cells) + "</tr>"
-            )
-        title = METRICS[metric].label
-        if stock_point is not None:
-            title += f" at {stock_point}"
-        units = html.escape(
-            "percent" if fraction else metric_units(metric, self.time_unit)
-        )
-        if stock_point is not None:
-            text = (
-                f"Stock points review each period until {self.duration:g} "
-                f"{self.time_unit}. Measurement begins at {self.warmup:g} "
-                f"{self.time_unit}."
-            )
-        else:
-            text = (
-                f"Operating hours end at {self.duration:g} {self.time_unit}. "
-                f"Measurement begins at {self.warmup:g} {self.time_unit}. "
-                + (
-                    "Every admitted customer is served to completion."
-                    if self.drain
-                    else "Service stops at closing. Waiting and flow averages include observed outcomes."
-                )
-            )
-        values = {
-            "TEXT": html.escape(text),
-            "TITLE": html.escape(title),
-            "CONFIDENCE": f"{confidence:.0%}",
-            "MEANS": means_html,
-            "UNITS": units,
-            "TABLE_ROWS": table_rows,
-            "REFERENCE": html.escape(reference),
-            "CHANGES": changes_html,
-        }
-        template = (
-            Path(__file__).with_name("comparison.html").read_text(encoding="utf-8")
-        )
-        # One pass over the template, so a placeholder-like scenario name or
-        # Plotly text inside a value is never replaced.
-        document = re.sub(
-            pattern=r"__([A-Z_]+)__",
-            repl=lambda match: values[match.group(1)],
-            string=template,
+        viewer = Viewer(
+            document=dashboard(
+                experiments=self.experiments,
+                comparing=True,
+                metric=metric,
+                station=station,
+                stock_point=stock_point,
+                confidence=confidence,
+                reference=reference,
+            ),
+            kind="comparison dashboard",
+            name="comparison",
+            height=1100,
         )
         if path is not None:
-            write_text(path, document)
-        return document
+            viewer.save(path)
+        return viewer
 
     def export(
         self,
@@ -408,61 +394,61 @@ class Comparison:
         confidence: float = 0.95,
         baseline: str | None = None,
     ) -> Path:
-        """Write the runs, stations, intervals, differences, and settings to a folder."""
+        """Write pooled run tables, intervals, differences, and metadata.
+
+        Parameters
+        ----------
+        directory : str or pathlib.Path
+            Folder to write to. It is created if needed.
+        metric : str, default 'mean_total_wait'
+            A replication metric name from flowsim.metrics().
+        station : str, optional
+            Station to report, for a station metric.
+        stock_point : str, optional
+            Stock point to report, for a stock-point metric.
+        confidence : float, default 0.95
+            Confidence level of the interval, strictly between 0 and 1.
+        baseline : str, optional
+            Reference scenario for differences. Without it, the first scenario.
+
+        Returns
+        -------
+        pathlib.Path
+            The folder.
+
+        Example
+        -------
+        >>> comparison.export("output/comparison")
+        """
         reference = self._reference(baseline)
-        intervals = self.intervals(
-            metric=metric,
-            station=station,
-            stock_point=stock_point,
-            confidence=confidence,
-        )
-        differences = self.differences(
-            metric=metric,
-            baseline=reference,
-            station=station,
-            stock_point=stock_point,
-            confidence=confidence,
-        )
-        destination = Path(directory)
-        destination.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-        self.summary.write_csv(destination / "runs.csv")
-        self.stations.write_csv(destination / "stations.csv")
-        if any(
-            experiment.runs[0].supply is not None
-            for experiment in self.experiments.values()
-        ):
-            self.stock_points.write_csv(destination / "stock_points.csv")
-        intervals.write_csv(destination / "intervals.csv")
-        differences.write_csv(destination / "differences.csv")
-        metadata = {
-            "baseline": reference,
+        request = {
             "metric": metric,
             "station": station,
-            **({} if stock_point is None else {"stock_point": stock_point}),
+            "stock_point": stock_point,
             "confidence": confidence,
-            "time_unit": self.time_unit,
-            "duration": self.duration,
-            "warmup": self.warmup,
-            "drain": self.drain,
-            "replication_seeds": [run.seed for run in self.experiments[reference].runs],
-            "difference": "Scenario minus baseline within matched replication",
         }
-        _write_metadata(destination / "metadata.json", metadata)
-        return destination
-
-
-def _location(station: str | None, stock_point: str | None) -> dict:
-    """Return the interval table's location column, keyed by its name.
-
-    Stock-point metrics use a stock_point column, and every other metric keeps
-    the station column, which is null for system metrics.
-    """
-    if stock_point is not None:
-        return {"stock_point": stock_point}
-    return {"station": station}
+        supply = any(
+            experiment.stock_point_names for experiment in self.experiments.values()
+        )
+        return export_tables(
+            directory,
+            summary=self.summary,
+            stations=self.stations,
+            stock_points=self.stock_points if supply else None,
+            intervals=self.intervals(**request),
+            differences=self.differences(
+                **request,
+                baseline=reference,
+            ),
+            metadata={
+                "baseline": reference,
+                **request_metadata(
+                    experiment=self.experiments[reference],
+                    **request,
+                ),
+                "difference": "Scenario minus baseline within matched replication",
+            },
+        )
 
 
 def compare(
@@ -473,8 +459,46 @@ def compare(
     seed: int = 42,
     warmup: float = 0,
     drain: bool = False,
+    keep_records: bool = True,
 ) -> Comparison:
-    """Run named scenarios using the same independent replication seeds."""
+    """Run named scenarios using the same independent replication seeds.
+
+    Each scenario runs Model.experiment with the same duration, replications,
+    seed, warmup, drain, and keep_records, so replication k uses the same seed
+    in every scenario. The scenarios must declare the same time unit, and the
+    first is the baseline.
+
+    Parameters
+    ----------
+    scenarios : mapping of str to Model
+        At least two named models. Each is validated.
+    duration : float
+        Closing time of each run in model time units, greater than 0.
+    replications : int, default 20
+        Number of replications per scenario, at least 2.
+    seed : int, default 42
+        Seed from which each replication's seed is spawned, at least 0.
+    warmup : float, default 0
+        Initial period excluded from measurement in each run.
+    drain : bool, default False
+        Whether each run continues past duration until no customers remain.
+    keep_records : bool, default True
+        Whether each run keeps its raw records. False drops them once the run's
+        measures are computed, as in Model.experiment.
+
+    Returns
+    -------
+    Comparison
+        The scenarios' experiments, with paired differences.
+
+    Example
+    -------
+    >>> comparison = flowsim.compare(
+    ...     scenarios={"One desk": one, "Two desks": two},
+    ...     duration=480,
+    ...     replications=30,
+    ... )
+    """
     if not isinstance(scenarios, Mapping) or len(scenarios) < 2:
         raise ValueError("A comparison needs at least two named models.")
     for name, model in scenarios.items():
@@ -493,6 +517,7 @@ def compare(
                 seed=seed,
                 warmup=warmup,
                 drain=drain,
+                keep_records=keep_records,
             )
             for name, model in scenarios.items()
         }
