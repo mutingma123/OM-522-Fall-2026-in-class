@@ -16,7 +16,7 @@ def _():
     import flowsim
 
     SEED = 522
-    return SEED, flowsim, go, make_subplots, mo, np, pl
+    return SEED, flowsim, make_subplots, mo, np, pl
 
 
 @app.cell(hide_code=True)
@@ -98,9 +98,20 @@ def _(execute, jobs, pl, plans):
     planned_times = dict(zip(jobs["job"], jobs["processing_time"]))
     due_dates = dict(zip(jobs["job"], jobs["due_date"]))
 
-    deterministic = pl.DataFrame(
-        [{"plan": name, **execute(plan, planned_times, due_dates)} for name, plan in plans.items()]
-    )
+    ## Target
+    _rows = []
+    for _name, _plan in plans.items():
+        _rows.append(
+            {
+                "plan": _name,
+                **execute(
+                    plan=_plan,
+                    processing_times=planned_times,
+                    due_dates=due_dates,
+                ),
+            }
+        )
+    deterministic = pl.DataFrame(_rows)
     deterministic
     return deterministic, due_dates
 
@@ -129,17 +140,17 @@ def _(SEED, flowsim, jobs, mo, np, pl):
     factor = flowsim.lognormal(mean=1, sd=0.2)
     _rng = np.random.default_rng(SEED)
 
-    scenarios = pl.DataFrame(
-        [
-            {
-                "scenario": scenario,
-                "job": job,
-                "realized_time": factor(_rng) * planned,
-            }
-            for scenario in range(1, SCENARIOS + 1)
-            for job, planned in zip(jobs["job"], jobs["processing_time"])
-        ]
-    )
+    _rows = []
+    for _scenario in range(1, SCENARIOS + 1):
+        for _job, _planned in zip(jobs["job"], jobs["processing_time"]):
+            _rows.append(
+                {
+                    "scenario": _scenario,
+                    "job": _job,
+                    "realized_time": factor(_rng) * _planned,
+                }
+            )
+    scenarios = pl.DataFrame(_rows)
     scenarios.write_csv(scenario_file)
     factor
     return SCENARIOS, scenario_file, scenarios
@@ -172,7 +183,17 @@ def _(due_dates, execute, pl, plans, saved):
     for (_scenario,), _group in saved.group_by("scenario", maintain_order=True):
         _realized = dict(zip(_group["job"], _group["realized_time"]))
         for _name, _plan in plans.items():
-            _rows.append({"scenario": _scenario, "plan": _name, **execute(_plan, _realized, due_dates)})
+            _rows.append(
+                {
+                    "scenario": _scenario,
+                    "plan": _name,
+                    **execute(
+                        plan=_plan,
+                        processing_times=_realized,
+                        due_dates=due_dates,
+                    ),
+                }
+            )
     results = pl.DataFrame(_rows)
     results.head(6)
     return (results,)
@@ -199,7 +220,7 @@ def _(pl, results):
         pl.col("violation").sum().alias("violations"),
     )
     summary
-    return (summary,)
+    return
 
 
 @app.cell
@@ -214,11 +235,11 @@ def _(pl, results):
         )
     )
     paired
-    return (paired,)
+    return
 
 
 @app.cell
-def _(LATE_LIMIT, deterministic, go, make_subplots, plans, results):
+def _(LATE_LIMIT, deterministic, make_subplots, plans, results):
     _figure = make_subplots(
         rows=1,
         cols=2,
