@@ -6,6 +6,5 @@
 __pycache__/
 __marimo__/
 *.py[cod]
-scenarios.csv
-variability-*.csv
+bottleneck-*.csv
 output/

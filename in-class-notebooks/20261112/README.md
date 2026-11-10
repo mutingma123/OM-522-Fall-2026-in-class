@@ -6,11 +6,15 @@ with nothing else installed.
 | Notebook | Open it with | What it is |
 |---|---|---|
 | `capacity_littles_law.py` | `pixi run class` | A 4, 6, and 5 minute line released faster than it can work, and Little's Law |
+| `bottleneck_investigation.py` | `pixi run quiz4` | The notebook for Quiz 4 (see the handout on Blackboard) |
 
 Run `pixi install` once, from this folder, before the first command.
 
 ```bash
 cd in-class-notebooks/20261112
 pixi install
-pixi run class
+pixi run quiz4
 ```
+
+`bottleneck_investigation.py` writes `bottleneck-<seed>.csv` to the folder you run it from, and that
+file is what you submit.
