@@ -1,0 +1,10 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+
+# Python and Marimo caches
+__pycache__/
+__marimo__/
+*.py[cod]
+bottleneck-*.csv
+output/
