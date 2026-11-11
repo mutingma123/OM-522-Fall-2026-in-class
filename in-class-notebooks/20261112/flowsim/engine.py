@@ -6,7 +6,7 @@ import math
 import zlib
 from collections import deque
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass, field, fields
 from numbers import Real
 from typing import TYPE_CHECKING
 
@@ -28,7 +28,7 @@ from flowsim.results import Results, SupplySettings
 from flowsim.scheduler import Event, Scheduler
 from flowsim.schedules import next_arrival
 from flowsim.station import _Station
-from flowsim.validation import sample
+from flowsim.validation import cumulative_shares, draw_index, sample
 
 if TYPE_CHECKING:
     from flowsim.model import Model, Node
@@ -77,10 +77,10 @@ class _Streams:
     slots=True,
 )
 class _Route:
-    """A node's destinations and, when it branches, their probabilities."""
+    """A node's destinations and, when it branches, their cumulative shares."""
 
     destinations: tuple[Node, ...]
-    probabilities: np.ndarray | None
+    shares: list[float] | None
 
 
 @dataclass(slots=True)
@@ -228,7 +228,7 @@ class _Run:
         for name, table in model.routing.items():
             self.routes[name] = {}
             for kind, choices in table.items():
-                probabilities = None
+                shares = None
                 if len(choices) > 1:
                     probabilities = np.asarray(
                         [probability for _, probability in choices],
@@ -237,11 +237,12 @@ class _Run:
                     # Normalize floating-point roundoff after the model's
                     # sum-to-one check.
                     probabilities /= probabilities.sum()
+                    shares = cumulative_shares(probabilities)
                 self.routes[name][kind] = _Route(
                     destinations=tuple(
                         nodes[destination] for destination, _ in choices
                     ),
-                    probabilities=probabilities,
+                    shares=shares,
                 )
         self.stations: dict[str, _Station] = {}
         for name in names:
@@ -285,11 +286,7 @@ class _Run:
 
     def observe(self, name: str) -> None:
         """Record the state after a change, retaining the last state at ties."""
-        row = _State(
-            station=name,
-            time=float(self.scheduler.now),
-            **self.stations[name].state(),
-        )
+        row = self.stations[name].state(float(self.scheduler.now))
         history = self.histories[name]
         if history and history[-1].time == row.time:
             history[-1] = row
@@ -335,13 +332,9 @@ class _Run:
         # Model.validate checks that each type reaching a node has a route.
         table = self.routes[name]
         route = table[None] if None in table else table[customer.customer_type]
-        if route.probabilities is None:
+        if route.shares is None:
             return route.destinations[0]
-        index = self.streams[name].routing.choice(
-            len(route.destinations),
-            p=route.probabilities,
-        )
-        return route.destinations[index]
+        return route.destinations[draw_index(route.shares, self.streams[name].routing)]
 
     def next_arrival_time(self, node: Node, rng: np.random.Generator) -> float | None:
         now = float(self.scheduler.now)
@@ -374,10 +367,11 @@ class _Run:
         rng = self.streams[node.name].durations
         types = node.types
         kinds = None if types is None else list(types)
-        weights = None
+        shares = None
         if types is not None and len(types) > 1:
             weights = np.asarray(list(types.values()), dtype=float)
             weights /= weights.sum()
+            shares = cumulative_shares(weights)
         if node.limit == 0:
             return
         arrival = node.first_arrival
@@ -392,10 +386,8 @@ class _Run:
             )
             # A source with one type draws nothing for it.
             kind = None
-            if kinds is not None and weights is not None:
-                kind = kinds[
-                    self.streams[node.name].types.choice(len(kinds), p=weights)
-                ]
+            if kinds is not None and shares is not None:
+                kind = kinds[draw_index(shares, self.streams[node.name].types)]
             elif kinds is not None:
                 kind = kinds[0]
             customer = _Customer(
@@ -673,7 +665,7 @@ class _Run:
         closing_states = {}
         for name in self.histories:
             self.observe(name)
-            closing_states[name] = replace(self.histories[name][-1])
+            closing_states[name] = self.histories[name][-1]
         if self.drain:
             if self.active_customers == 0:
                 self.finished.succeed()

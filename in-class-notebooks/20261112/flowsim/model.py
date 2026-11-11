@@ -11,16 +11,15 @@ from typing import TYPE_CHECKING, Literal
 import networkx as nx
 import numpy as np
 
+from flowsim.diagram import chain_diagram, network_diagram
+from flowsim.display import display_html, display_text
 from flowsim.distributions import Distribution
 from flowsim.engine import simulate
-from flowsim.plots import chain_diagram, network_diagram
 from flowsim.policies import OrderUpTo
 from flowsim.records import SUPPLIER
 from flowsim.results import (
     Experiment,
     Results,
-    display_html,
-    display_text,
 )
 from flowsim.schedules import validate_schedule
 from flowsim.validation import Duration, integer, number
@@ -160,6 +159,11 @@ def _type_name(value: object) -> str:
     return value
 
 
+# How far branch and type probabilities may sum from one. The builder page
+# reads it too.
+BRANCH_SUM_TOLERANCE = 1e-12
+
+
 def _type_mix(types: object) -> Mapping[str, float]:
     if not isinstance(types, Mapping) or not types:
         raise ValueError("types must map each customer type to its probability.")
@@ -175,14 +179,10 @@ def _type_mix(types: object) -> Mapping[str, float]:
         a=sum(probabilities.values()),
         b=1.0,
         rel_tol=0,
-        abs_tol=1e-12,
+        abs_tol=BRANCH_SUM_TOLERANCE,
     ):
         raise ValueError("Type probabilities must sum to one.")
     return MappingProxyType(probabilities)
-
-
-# How far branch probabilities may sum from one. The builder page reads it too.
-BRANCH_SUM_TOLERANCE = 1e-12
 
 
 def _typed_durations(times: Mapping, label: str) -> Mapping[str, Duration]:
@@ -770,24 +770,18 @@ class Model:
                 "batch_size requires lead_time=None, i.e., a stock point that "
                 "produces at stations."
             )
-        elif callable(lead_time):
-            duration_check(
-                value=lead_time,
-                label="Lead time",
-                positive=True,
-            )
-            if policy.cover is None:
-                raise ValueError(
-                    "A sampled lead time needs an explicit cover in order_up_to, "
-                    "since FlowSim does not estimate the lead time's mean."
-                )
         else:
             duration_check(
                 value=lead_time,
                 label="Lead time",
                 positive=True,
             )
-            if policy.cover is not None:
+            if callable(lead_time) and policy.cover is None:
+                raise ValueError(
+                    "A sampled lead time needs an explicit cover in order_up_to, "
+                    "since FlowSim does not estimate the lead time's mean."
+                )
+            if not callable(lead_time) and policy.cover is not None:
                 raise ValueError(
                     "With a constant lead time, cover is lead_time / period. Give "
                     "cover only for a sampled lead time."
@@ -1045,6 +1039,8 @@ class Model:
 
     def _commit(self, rules: list[tuple[str, str | None, Choices]]) -> None:
         """Validate new routing rules as one edit, then add them to the model."""
+        if not rules:
+            return
         routing = {origin: dict(table) for origin, table in self._routing.items()}
         graph = self._graph.copy()
         for origin, key, choices in rules:

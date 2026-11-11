@@ -10,7 +10,14 @@ import plotly.graph_objects as go
 import polars as pl
 
 from flowsim.catalog import unknown
+from flowsim.display import (
+    display_html,
+    display_text,
+    missing_attribute,
+    window_line,
+)
 from flowsim.model import Model
+from flowsim.plots import plotly_figure
 from flowsim.reporting import (
     comparison_differences,
     comparison_intervals,
@@ -23,10 +30,7 @@ from flowsim.results import (
     Experiment,
     Settings,
     _run_settings,
-    display_html,
-    display_text,
-    missing_attribute,
-    window_line,
+    stack,
 )
 from flowsim.viewer import Viewer
 
@@ -125,31 +129,34 @@ class Comparison:
     @property
     def summary(self) -> pl.DataFrame:
         """Return every scenario's pooled summary table, with a scenario column."""
-        return pl.concat(
-            [
-                experiment.summary.select(pl.lit(name).alias("scenario"), pl.all())
+        return stack(
+            parts=(
+                (name, experiment.summary)
                 for name, experiment in self.experiments.items()
-            ]
+            ),
+            column="scenario",
         )
 
     @property
     def stations(self) -> pl.DataFrame:
         """Return every scenario's pooled stations table, with a scenario column."""
-        return pl.concat(
-            [
-                experiment.stations.select(pl.lit(name).alias("scenario"), pl.all())
+        return stack(
+            parts=(
+                (name, experiment.stations)
                 for name, experiment in self.experiments.items()
-            ]
+            ),
+            column="scenario",
         )
 
     @property
     def stock_points(self) -> pl.DataFrame:
         """Return every scenario's pooled stock_points table, with a scenario column."""
-        return pl.concat(
-            [
-                experiment.stock_points.select(pl.lit(name).alias("scenario"), pl.all())
+        return stack(
+            parts=(
+                (name, experiment.stock_points)
                 for name, experiment in self.experiments.items()
-            ]
+            ),
+            column="scenario",
         )
 
     def _reference(self, baseline: str | None) -> str:
@@ -303,11 +310,13 @@ class Comparison:
                 confidence=confidence,
             )
         )
-        return interval_figure(
-            table=table,
-            metric=metric,
-            time_unit=self.settings.time_unit,
-            differences=differences,
+        return plotly_figure(
+            interval_figure(
+                table=table,
+                metric=metric,
+                time_unit=self.settings.time_unit,
+                differences=differences,
+            )
         )
 
     def viewer(

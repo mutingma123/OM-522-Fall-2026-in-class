@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import difflib
 import functools
-import html
-import math
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from types import MappingProxyType
@@ -22,16 +19,24 @@ from flowsim.catalog import (
     inapplicable,
     metric_units,
 )
+from flowsim.display import (
+    display_html,
+    display_text,
+    figure,
+    missing_attribute,
+    window_line,
+)
 from flowsim.plots import (
+    inventory_figure,
+    orders_figure,
     plot_customer,
-    plot_inventory,
-    plot_orders,
-    plot_queue,
-    plot_resources,
-    plot_utilization,
-    plot_wait,
+    plotly_figure,
+    queue_figure,
     require_stations,
+    resources_figure,
     run_page_html,
+    utilization_figure,
+    wait_figure,
 )
 from flowsim.records import (
     ACTIVITY_SCHEMA,
@@ -57,14 +62,12 @@ from flowsim.records import (
     headline_first,
 )
 from flowsim.reporting import (
-    _write_metadata,
     dashboard,
     experiment_intervals,
     export_tables,
     interval_figure,
-    remove_stale_exports,
     request_metadata,
-    require_flowsim_folder,
+    write_export,
 )
 from flowsim.viewer import Viewer
 
@@ -180,71 +183,6 @@ class SupplySettings:
             object.__setattr__(self, name, _frozen(getattr(self, name)))
 
 
-# Displays read tables and attributes that already exist. None of them runs a
-# model, fits a distribution, or builds a viewer or figure.
-def display_text(head: str, rows: list[tuple[str, str]]) -> str:
-    """Join a heading and its (label, value) rows into a short text display."""
-    lines = [head]
-    for label, value in rows:
-        lines.append(f"  {label}: {value}" if label else f"    {value}")
-    return "\n".join(lines)
-
-
-def display_html(head: str, rows: list[tuple[str, str]]) -> str:
-    """Render the same heading and rows as a compact HTML table."""
-    body = "".join(
-        '<tr><th style="text-align: left; vertical-align: top; padding-right: 1em;">'
-        f"{html.escape(label)}</th><td><code>{html.escape(value)}</code></td></tr>"
-        for label, value in rows
-    )
-    return (
-        f"<div><strong>{html.escape(head)}</strong>"
-        f'<table style="border-collapse: collapse;">{body}</table></div>'
-    )
-
-
-def figure(value: object) -> str:
-    """Format one table value for a display."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        return "n/a"
-    if isinstance(value, float):
-        return f"{value:.3g}"
-    return str(value)
-
-
-def window_line(settings: Settings) -> str:
-    """Describe a run window and stopping rule in one line."""
-    stopping = "drained" if settings.drain else "not drained"
-    return (
-        f"{settings.duration:g} {settings.time_unit}, "
-        f"warm-up {settings.warmup:g}, {stopping}"
-    )
-
-
-def missing_attribute(
-    owner: object,
-    name: str,
-    hints: dict[str, str],
-) -> AttributeError:
-    """Build the error for a missing public attribute, with a hint or matches."""
-    message = f"{type(owner).__name__!r} object has no attribute {name!r}."
-    if name in hints:
-        return AttributeError(f"{message} {hints[name]}")
-    public = [
-        attribute
-        for attribute in [*dir(type(owner)), *vars(owner)]
-        if not attribute.startswith("_")
-    ]
-    close = difflib.get_close_matches(
-        name,
-        public,
-        n=3,
-    )
-    if close:
-        message += f" Close matches: {', '.join(close)}."
-    return AttributeError(message)
-
-
 # A run's raw record tables, which model.experiment(..., keep_records=False)
 # drops once the run's measures are computed.
 RAW_TABLES = (
@@ -261,6 +199,16 @@ _DROPPED = (
     "This run's raw records were dropped by model.experiment(..., "
     "keep_records=False). Rerun with keep_records=True to keep them."
 )
+
+
+def stack(
+    parts: Iterable[tuple[object, pl.DataFrame]],
+    column: str,
+) -> pl.DataFrame:
+    """Stack labeled tables, with each table's label in a new first column."""
+    return pl.concat(
+        [table.select(pl.lit(value).alias(column), pl.all()) for value, table in parts]
+    )
 
 
 class Results:
@@ -651,118 +599,117 @@ class Results:
         )
 
     def _system_metrics(self) -> pl.DataFrame:
-        eligible = self.customers.filter(pl.col("status") != Status.REJECTED)
-        cohort = eligible.filter(pl.col("arrival_time") >= self.settings.warmup)
-        finished = cohort.filter(pl.col("status") == Status.COMPLETED)
-        completed = eligible.get_column("exit_time").count()
-        rejected = self.customers.height - eligible.height
-        # Abandoned customers leave without service, so they are neither
-        # completed nor remaining, and their waits stay out of the averages.
-        abandoned = eligible.get_column("abandon_time").count()
-        abandoned_at_close = eligible.filter(
-            pl.col("abandon_time") < self.settings.duration
-        ).height
-        cohort_abandoned = cohort.get_column("abandon_time").count()
-        measurement_arrivals = self.customers.filter(
-            pl.col("arrival_time") >= self.settings.warmup
-        ).height
-        exits = self.customers.filter(
-            (pl.col("exit_time") >= self.settings.warmup)
-            & (pl.col("exit_time") < self.settings.duration)
-        ).height
-        completed_at_close = self.customers.filter(
-            pl.col("exit_time") < self.settings.duration
-        ).height
-        window = self.settings.duration - self.settings.warmup
-        # Sum each customer's presence clipped to the observation window.
+        # One query over the customers table gives every count.
+        warmup = self.settings.warmup
+        duration = self.settings.duration
+        status = pl.col("status")
+        eligible = status != Status.REJECTED
+        cohort = eligible & (pl.col("arrival_time") >= warmup)
+        finished = cohort & (status == Status.COMPLETED)
+        inside = eligible & pl.col("admission_time").is_not_null()
+        abandon = pl.col("abandon_time")
+        admission = pl.col("admission_time")
+        exit_time = pl.col("exit_time")
+        # Each customer's presence clipped to the observation window.
         # Customer*time / time gives the time-average work in process.
-        inside = eligible.filter(pl.col("admission_time").is_not_null())
-        presence = inside.select(
+        presence = (
+            pl.coalesce("exit_time", "abandon_time")
+            .fill_null(duration)
+            .clip(upper_bound=duration)
+            - admission.clip(lower_bound=warmup)
+        ).clip(lower_bound=0)
+        counts = self.customers.select(
+            pl.len().alias("arrivals"),
+            pl.col("admitted").sum().alias("admitted"),
+            (inside & (admission < duration)).sum().alias("admitted_at_close"),
             (
-                pl.coalesce("exit_time", "abandon_time")
-                .fill_null(self.settings.duration)
-                .clip(upper_bound=self.settings.duration)
-                - pl.col("admission_time").clip(lower_bound=self.settings.warmup)
+                eligible
+                & (admission.is_null() | (admission >= duration))
+                & (abandon.is_null() | (abandon >= duration))
             )
-            .clip(lower_bound=0)
             .sum()
-            .alias("presence")
-        ).item()
+            .alias("outside_at_close"),
+            eligible.sum().alias("eligible"),
+            exit_time.filter(eligible).count().alias("completed"),
+            # Abandoned customers leave without service, so they are neither
+            # completed nor remaining, and their waits stay out of the averages.
+            abandon.filter(eligible).count().alias("abandoned"),
+            (eligible & (abandon < duration)).sum().alias("abandoned_at_close"),
+            abandon.filter(cohort).count().alias("cohort_abandoned"),
+            (pl.col("arrival_time") >= warmup).sum().alias("measurement_arrivals"),
+            ((exit_time >= warmup) & (exit_time < duration)).sum().alias("exits"),
+            (exit_time < duration).sum().alias("completed_at_close"),
+            # A rejection happens at arrival, so both counts use the event's
+            # own time in [warmup, duration), as measurement_completions does.
+            ((status == Status.REJECTED) & (pl.col("arrival_time") >= warmup))
+            .sum()
+            .alias("measurement_rejected"),
+            # Abandonments count by their own time, like completions. The
+            # rate instead follows the customers who arrived after warm-up.
+            (eligible & (abandon >= warmup) & (abandon < duration))
+            .sum()
+            .alias("measurement_abandoned"),
+            (inside & (admission >= warmup) & (admission < duration))
+            .sum()
+            .alias("measurement_admitted"),
+            cohort.sum().alias("cohort"),
+            finished.sum().alias("finished"),
+        ).row(0, named=True)
+        # Float sums and means stay on filtered frames, as before, since a
+        # filtered expression can sum in a different order (last-bit changes).
+        done = self.customers.filter(finished)
+        for column in ["flow_time", "total_wait", "total_blocked", "outside_wait"]:
+            counts[f"mean_{column}"] = done.get_column(column).mean()
+        counts["presence"] = self.customers.filter(inside).select(presence.sum()).item()
+        window = duration - warmup
+        rejected = counts["arrivals"] - counts["eligible"]
         # A run's settings always record its end time.
         end_time = self.settings.end_time
         assert end_time is not None
         summary = pl.DataFrame(
             {
-                "arrivals": [self.customers.height],
-                "admitted": [self.customers.filter(pl.col("admitted")).height],
-                "admitted_at_close": [
-                    inside.filter(
-                        pl.col("admission_time") < self.settings.duration
-                    ).height
-                ],
-                "outside_at_close": [
-                    eligible.filter(
-                        (
-                            pl.col("admission_time").is_null()
-                            | (pl.col("admission_time") >= self.settings.duration)
-                        )
-                        & (
-                            pl.col("abandon_time").is_null()
-                            | (pl.col("abandon_time") >= self.settings.duration)
-                        )
-                    ).height
-                ],
+                "arrivals": [counts["arrivals"]],
+                "admitted": [counts["admitted"]],
+                "admitted_at_close": [counts["admitted_at_close"]],
+                "outside_at_close": [counts["outside_at_close"]],
                 "rejected": [rejected],
-                "abandoned": [abandoned],
-                "completed": [completed],
-                "remaining": [eligible.height - completed - abandoned],
-                "completed_at_close": [completed_at_close],
+                "abandoned": [counts["abandoned"]],
+                "completed": [counts["completed"]],
+                "remaining": [
+                    counts["eligible"] - counts["completed"] - counts["abandoned"]
+                ],
+                "completed_at_close": [counts["completed_at_close"]],
                 "remaining_at_close": [
-                    eligible.height - completed_at_close - abandoned_at_close
+                    counts["eligible"]
+                    - counts["completed_at_close"]
+                    - counts["abandoned_at_close"]
                 ],
-                "after_close_completions": [completed - completed_at_close],
+                "after_close_completions": [
+                    counts["completed"] - counts["completed_at_close"]
+                ],
                 "end_time": [end_time],
-                "overtime": [end_time - self.settings.duration],
-                "measurement_arrivals": [measurement_arrivals],
-                # A rejection happens at arrival, so both counts use the event's
-                # own time in [warmup, duration), as measurement_completions does.
-                "measurement_rejected": [
-                    self.customers.filter(
-                        (pl.col("status") == Status.REJECTED)
-                        & (pl.col("arrival_time") >= self.settings.warmup)
-                    ).height
-                ],
-                # Abandonments count by their own time, like completions. The
-                # rate instead follows the customers who arrived after warm-up.
-                "measurement_abandoned": [
-                    eligible.filter(
-                        (pl.col("abandon_time") >= self.settings.warmup)
-                        & (pl.col("abandon_time") < self.settings.duration)
-                    ).height
-                ],
+                "overtime": [end_time - duration],
+                "measurement_arrivals": [counts["measurement_arrivals"]],
+                "measurement_rejected": [counts["measurement_rejected"]],
+                "measurement_abandoned": [counts["measurement_abandoned"]],
                 "abandonment_rate": [
-                    cohort_abandoned / measurement_arrivals
-                    if measurement_arrivals
+                    counts["cohort_abandoned"] / counts["measurement_arrivals"]
+                    if counts["measurement_arrivals"]
                     else None
                 ],
-                "measurement_admitted": [
-                    inside.filter(
-                        (pl.col("admission_time") >= self.settings.warmup)
-                        & (pl.col("admission_time") < self.settings.duration)
-                    ).height
-                ],
-                "cohort_arrivals": [cohort.height],
-                "measurement_completions": [exits],
-                "cohort_completions": [finished.height],
+                "measurement_admitted": [counts["measurement_admitted"]],
+                "cohort_arrivals": [counts["cohort"]],
+                "measurement_completions": [counts["exits"]],
+                "cohort_completions": [counts["finished"]],
                 "cohort_remaining": [
-                    cohort.height - finished.height - cohort_abandoned
+                    counts["cohort"] - counts["finished"] - counts["cohort_abandoned"]
                 ],
-                "mean_flow_time": [finished.get_column("flow_time").mean()],
-                "mean_total_wait": [finished.get_column("total_wait").mean()],
-                "mean_total_blocked": [finished.get_column("total_blocked").mean()],
-                "mean_outside_wait": [finished.get_column("outside_wait").mean()],
-                "throughput": [exits / window],
-                "mean_wip": [presence / window],
+                "mean_flow_time": [counts["mean_flow_time"]],
+                "mean_total_wait": [counts["mean_total_wait"]],
+                "mean_total_blocked": [counts["mean_total_blocked"]],
+                "mean_outside_wait": [counts["mean_outside_wait"]],
+                "throughput": [counts["exits"] / window],
+                "mean_wip": [counts["presence"] / window],
             },
             schema_overrides={
                 "abandonment_rate": pl.Float64,
@@ -784,6 +731,8 @@ class Results:
         missing with fewer than two periods or constant demand.
         """
         names = self.stock_point_names
+        if not names:
+            return pl.DataFrame(schema=STOCK_POINT_SCHEMA)
         window = self.inventory.filter(pl.col("time") >= self.settings.warmup)
         measured = window.group_by("stock_point").agg(
             pl.len().alias("periods"),
@@ -921,7 +870,7 @@ class Results:
         self._require_records("plot_queue()")
         require_stations(self)
 
-        return plot_queue(self, station=station)
+        return plotly_figure(queue_figure(self, station=station))
 
     def plot_wait(self, station: str | None = None) -> Figure:
         """Plot the waiting-time histogram of station arrivals after warm-up.
@@ -943,7 +892,7 @@ class Results:
         self._require_records("plot_wait()")
         require_stations(self)
 
-        return plot_wait(self, station=station)
+        return plotly_figure(wait_figure(self, station=station))
 
     def plot_utilization(self, station: str | None = None) -> Figure:
         """Plot each station's occupied share of capacity, or one station's.
@@ -965,7 +914,7 @@ class Results:
         self._require_records("plot_utilization()")
         require_stations(self)
 
-        return plot_utilization(self, station=station)
+        return plotly_figure(utilization_figure(self, station=station))
 
     def plot_resources(
         self,
@@ -1003,10 +952,12 @@ class Results:
         self._require_records("plot_resources()")
         require_stations(self)
 
-        return plot_resources(
-            self,
-            station=station,
-            stacked=stacked,
+        return plotly_figure(
+            resources_figure(
+                self,
+                station=station,
+                stacked=stacked,
+            )
         )
 
     def plot_customer(self, customer_id: int) -> Figure:
@@ -1050,7 +1001,7 @@ class Results:
         >>> results.plot_inventory("Store").show()
         """
         self._require_records("plot_inventory()")
-        return plot_inventory(self, stock_point=stock_point)
+        return plotly_figure(inventory_figure(self, stock_point=stock_point))
 
     def plot_orders(self) -> Figure:
         """Plot consumer demand and every stage's orders, which shows the bullwhip.
@@ -1065,7 +1016,7 @@ class Results:
         >>> results.plot_orders().show()
         """
         self._require_records("plot_orders()")
-        return plot_orders(self)
+        return plotly_figure(orders_figure(self))
 
     def viewer(self, path: str | Path | None = None) -> Viewer:
         """Build the offline results page, saving it when a path is given.
@@ -1124,13 +1075,6 @@ class Results:
         >>> results.export("output/my-run")
         """
         self._require_records("export()")
-        destination = Path(directory)
-        require_flowsim_folder(destination)
-        destination.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-        names = self._table_names()
         capacities = self.settings.capacities
         assert capacities is not None
         metadata = {
@@ -1169,16 +1113,11 @@ class Results:
             metadata["shipment_arrivals"] = (
                 "Null for shipments still in transit at the end"
             )
-        # Metadata goes first, so an export interrupted while writing tables
-        # leaves a folder that a retry still recognizes as FlowSim's.
-        _write_metadata(destination / "metadata.json", metadata)
-        for name in names:
-            getattr(self, name).write_csv(destination / f"{name}.csv")
-        remove_stale_exports(
-            destination,
-            {f"{name}.csv" for name in names} | {"metadata.json"},
+        return write_export(
+            directory=directory,
+            tables={f"{name}.csv": getattr(self, name) for name in self._table_names()},
+            metadata=metadata,
         )
-        return destination
 
 
 class Experiment:
@@ -1279,40 +1218,32 @@ class Experiment:
     @property
     def stations(self) -> pl.DataFrame:
         """Return every run's stations table, stacked, with a replication column."""
-        return pl.concat(
-            [
-                run.stations.select(
-                    pl.lit(index).alias("replication"),
-                    pl.all(),
-                )
-                for index, run in enumerate(self.runs, start=1)
-            ]
+        return stack(
+            parts=(
+                (index, run.stations) for index, run in enumerate(self.runs, start=1)
+            ),
+            column="replication",
         )
 
     @property
     def stock_points(self) -> pl.DataFrame:
         """Return every run's stock_points table, stacked, with a replication column."""
-        return pl.concat(
-            [
-                run.stock_points.select(
-                    pl.lit(index).alias("replication"),
-                    pl.all(),
-                )
+        return stack(
+            parts=(
+                (index, run.stock_points)
                 for index, run in enumerate(self.runs, start=1)
-            ]
+            ),
+            column="replication",
         )
 
     @property
     def summary(self) -> pl.DataFrame:
         """Return every run's summary table, stacked, with a replication column."""
-        return pl.concat(
-            [
-                run.summary.select(
-                    pl.lit(index).alias("replication"),
-                    pl.all(),
-                )
-                for index, run in enumerate(self.runs, start=1)
-            ]
+        return stack(
+            parts=(
+                (index, run.summary) for index, run in enumerate(self.runs, start=1)
+            ),
+            column="replication",
         )
 
     @property
@@ -1406,15 +1337,17 @@ class Experiment:
         -------
         >>> experiment.plot("mean_total_wait").show()
         """
-        return interval_figure(
-            table=self.intervals(
+        return plotly_figure(
+            interval_figure(
+                table=self.intervals(
+                    metric=metric,
+                    station=station,
+                    stock_point=stock_point,
+                    confidence=confidence,
+                ),
                 metric=metric,
-                station=station,
-                stock_point=stock_point,
-                confidence=confidence,
-            ),
-            metric=metric,
-            time_unit=self.settings.time_unit,
+                time_unit=self.settings.time_unit,
+            )
         )
 
     def viewer(
@@ -1548,7 +1481,7 @@ class PageExperiment(Experiment):
     """An experiment whose pooled tables are built once, for one page.
 
     Experiment rebuilds each pooled table on every access, so estimates always
-    read the runs' current values. A dashboard reads them hundreds of times
+    read the runs' current values. A dashboard reads one for every metric
     while it is built, and the page is a snapshot of the runs anyway.
     """
 
