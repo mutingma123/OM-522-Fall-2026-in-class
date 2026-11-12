@@ -11,7 +11,7 @@ def _():
 
     import flowsim
 
-    # Replace with the last four digits of your CWID.
+    # Replace 1234 with the last four digits of your CWID (handout, "Set up the notebook", step 3).
     SEED = 1234
     return SEED, flowsim, mo, pl
 
@@ -19,9 +19,27 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Draw the line
+    # Quiz 4: bottlenecks, machines, and racks
 
-    Build the line in the handout, then copy the script at the bottom of the page.
+    Write your predictions (P1 to P3 in the handout) before you run anything. Then work down this
+    notebook in order. Each section below names the handout questions it is for.
+
+    | Section | Handout questions |
+    |---|---|
+    | Draw the line | A1 |
+    | Your line as a function | A2 |
+    | Check the build | A3 (must show 79.49) |
+    | Seven versions of the line | Runs once A3 passes, in about 10 seconds |
+    | Where each station spends its time | B2, C2, C3, D3 |
+    | Jobs shipped per shift, compared with today | C1, D1 |
+    | The line as a whole | B3, D2, E1 |
+    | Little's Law | E1, E2 (add your own cells there) |
+
+    B1 uses Table 1 of the handout only, so it has no section here.
+
+    ## Draw the line (A1)
+
+    Build the line in Table 1 of the handout, then copy the script at the bottom of the builder.
     """)
     return
 
@@ -35,7 +53,7 @@ def _(flowsim):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Your line as a function
+    ## Your line as a function (A2)
     """)
     return
 
@@ -43,9 +61,21 @@ def _(mo):
 @app.cell
 def _():
     def line(machines=(1, 1, 1), racks=(2, 2, 2)):
-        # Paste the builder's script here, without its run line. Use machines[0], machines[1],
-        # and machines[2] for each station's capacity, racks[0], racks[1], and racks[2] for its
-        # buffer, and end with `return model`.
+        # A2, in five steps:
+        # 1. Paste the builder's whole script below these comments. Then select the pasted lines
+        #    and press Tab, so every line sits one level inside line(), like this comment.
+        # 2. Delete the last two parts of the script: the `results = model.run(...)` call and the
+        #    `print(results)` line.
+        # 3. In each station, change `capacity=1` (the number of machines) to machines[0] for the
+        #    Saw, machines[1] for the Drill, and machines[2] for the Pack. Change `buffer=2` to
+        #    racks[0], racks[1], and racks[2] the same way.
+        # 4. Add `return model` as the last line, at the same indent as the lines above it.
+        #    Without it, line() hands back nothing and the check below fails.
+        # 5. Delete the raise line.
+        #
+        # The function should end like this:
+        #     model.route([orders, saw, drill, pack, model.exit])
+        #     return model
         raise NotImplementedError("Paste the builder's script into line().")
 
     return (line,)
@@ -54,7 +84,10 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Check the build
+    ## Check the build (A3)
+
+    This cell must show 79.49. If it shows an error or another number, see the Troubleshooting box
+    at the end of the handout.
     """)
     return
 
@@ -76,6 +109,9 @@ def _(line, pl):
 def _(mo):
     mo.md("""
     ## Seven versions of the line
+
+    Run this cell once the check shows 79.49. It runs today's line and six changes to it with your
+    seed, and takes about 10 seconds. It shows no output, and the three tables below read its results.
     """)
     return
 
@@ -105,6 +141,9 @@ def _(SEED, flowsim, line):
 def _(mo):
     mo.md("""
     ## Where each station spends its time
+
+    Used in B2, C2, C3, and D3. Each row is one station in one version of the line. For a station
+    with two machines, each column is the average over its two machines.
     """)
     return
 
@@ -141,6 +180,9 @@ def _(comparison, pl):
 def _(mo):
     mo.md("""
     ## Jobs shipped per shift, compared with today
+
+    Used in C1 and D1. The `mean` column is the gain, i.e., the jobs per shift each change ships
+    minus what today's line ships. The `lower` and `upper` columns are its 95% interval.
     """)
     return
 
@@ -164,6 +206,8 @@ def _(comparison):
 def _(mo):
     mo.md("""
     ## The line as a whole
+
+    Used in B3, D2, and E1. Each row is one version of the line, averaged over 100 shifts.
     """)
     return
 
@@ -195,34 +239,19 @@ def _(comparison, pl):
     return (results,)
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## Little's Law (E1 and E2)
+
+    Add your cells for E1 and E2 below this one. Copy the code from the handout, and give each new
+    table its own name, since marimo does not allow two cells to define the same name.
+    """)
+    return
+
+
 @app.cell
-def _(SEED, gains, pl, results, stations):
-    wide_stations = stations.pivot(
-        on="station",
-        index="scenario",
-        values=["utilization", "processing_utilization", "blocking_fraction"],
-    )
-    (
-        results.join(
-            gains.select(
-                "scenario",
-                pl.col("mean").alias("gain"),
-                pl.col("lower").alias("gain_lower"),
-                pl.col("upper").alias("gain_upper"),
-            ),
-            on="scenario",
-            how="left",
-            maintain_order="left",
-        )
-        .join(
-            wide_stations,
-            on="scenario",
-            maintain_order="left",
-        )
-        .with_columns(pl.lit(SEED).alias("seed"))
-        .write_csv(f"bottleneck-{SEED}.csv")
-    )
-    f"Saved bottleneck-{SEED}.csv"
+def _():
     return
 
 

@@ -16,5 +16,5 @@ pixi install
 pixi run quiz4
 ```
 
-`bottleneck_investigation.py` writes `bottleneck-<seed>.csv` to the folder you run it from, and that
-file is what you submit.
+For Quiz 4, you submit one document, as the handout's "What to submit" section describes. The
+notebook writes no files.
