@@ -617,7 +617,7 @@ def _(mo):
     shifts, into the share spent working on jobs (`processing_utilization`) and the share spent
     blocked, holding a finished job with nowhere to put it (`blocking_fraction`). FlowSim's
     `utilization` is the two added together, i.e., the share of the shift the machine is
-    occupied. The utilization in the Quiz 3 investigation is `processing_utilization`.
+    occupied. The utilization in the Quiz 4 investigation is `processing_utilization`.
     """)
     return
 

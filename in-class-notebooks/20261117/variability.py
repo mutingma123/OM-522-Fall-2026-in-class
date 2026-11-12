@@ -19,17 +19,18 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Thirty runs of the Quiz 3 experiment
+    # Thirty runs of the variability experiment
 
     One machine, 4-minute jobs on average, five cases at six utilizations. Each seed is a different
-    random history, run exactly as in Quiz 3 (`make_seed_data.py` wrote the file).
+    random history, run exactly as in Quiz 4, which you do with your own seed after this class
+    (`make_seed_data.py` wrote the file).
     """)
     return
 
 
 @app.cell
 def _(pl):
-    seeds = pl.read_csv("data/quiz3-seeds.csv")
+    seeds = pl.read_csv("data/variability-seeds.csv")
     seeds
     return (seeds,)
 

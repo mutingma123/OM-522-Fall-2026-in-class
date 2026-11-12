@@ -1,7 +1,7 @@
-"""Run the Quiz 3 cases for 30 seeds and save them to data/quiz3-seeds.csv.
+"""Run the Quiz 4 cases for 30 seeds and save them to data/variability-seeds.csv.
 
 The model and measurement are copied from ../20261110/variability_investigation.py, so each seed's
-rows match what a student with that seed would get from Quiz 3. Run from this folder:
+rows match what a student with that seed would get from Quiz 4. Run from this folder:
 
     pixi run python make_seed_data.py
 """
@@ -75,5 +75,5 @@ results = pl.DataFrame(
     pl.format("ca2={}, ce2={}", "arrival_scv", "processing_scv").alias("case"),
 )
 Path("data").mkdir(exist_ok=True)
-results.write_csv("data/quiz3-seeds.csv")
+results.write_csv("data/variability-seeds.csv")
 print(results.shape)

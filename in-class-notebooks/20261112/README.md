@@ -6,15 +6,15 @@ with nothing else installed.
 | Notebook | Open it with | What it is |
 |---|---|---|
 | `capacity_littles_law.py` | `pixi run class` | A 4, 6, and 5 minute line released faster than it can work, and Little's Law |
-| `bottleneck_investigation.py` | `pixi run quiz4` | The notebook for Quiz 4 (see the handout on Blackboard) |
+| `bottleneck_investigation.py` | `pixi run quiz3` | The notebook for Quiz 3 (see the handout on Blackboard) |
 
 Run `pixi install` once, from this folder, before the first command.
 
 ```bash
 cd in-class-notebooks/20261112
 pixi install
-pixi run quiz4
+pixi run quiz3
 ```
 
-For Quiz 4, you submit one document, as the handout's "What to submit" section describes. The
+For Quiz 3, you submit one document, as the handout's "What to submit" section describes. The
 notebook writes no files.

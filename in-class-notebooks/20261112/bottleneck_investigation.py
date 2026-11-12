@@ -19,7 +19,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # Quiz 4: bottlenecks, machines, and racks
+    # Quiz 3: bottlenecks, machines, and racks
 
     Write your predictions (P1 to P3 in the handout) before you run anything. Then work down this
     notebook in order. Each section below names the handout questions it is for.

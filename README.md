@@ -83,6 +83,21 @@ OM-522-Fall-2026-in-class/
 │   │   ├── flowsim/
 │   │   ├── pixi.toml
 │   │   └── pixi.lock
+│   ├── 20261112/
+│   │   ├── README.md
+│   │   ├── capacity_littles_law.py
+│   │   ├── bottleneck_investigation.py
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
+│   ├── 20261117/
+│   │   ├── README.md
+│   │   ├── variability.py
+│   │   ├── make_seed_data.py
+│   │   ├── data/
+│   │   ├── flowsim/
+│   │   ├── pixi.toml
+│   │   └── pixi.lock
 │   └── TSP/
 │       ├── data/
 │       ├── tests/
@@ -279,21 +294,43 @@ pixi run demo
 The [production line guide](in-class-notebooks/20261103/README.md) describes
 the data files and what each part of the notebook shows.
 
-## Stress test and Quiz 3
+## Stress test and Quiz 4
 
 The November 10 folder holds the stress test example that the final submission
-requires and the Quiz 3 notebook. It also has its own environment and a copy of
-FlowSim. Run its commands from the `20261110` directory:
+requires and the Quiz 4 notebook. Quiz 4 starts after the November 17 class. The
+folder also has its own environment and a copy of FlowSim. Run its commands from the `20261110` directory:
 
 ```bash
 cd in-class-notebooks/20261110
 pixi install
 pixi run stress-test
-pixi run quiz3
+pixi run quiz4
 ```
 
 The [November 10 guide](in-class-notebooks/20261110/README.md) describes both
 notebooks.
+
+## Capacity, Little's Law, and Quiz 3
+
+The November 12 folder holds the class notebook on capacity and Little's Law and the Quiz 3
+notebook. It has its own environment and a copy of FlowSim. Run its commands from the `20261112`
+directory:
+
+```bash
+cd in-class-notebooks/20261112
+pixi install
+pixi run class
+pixi run quiz3
+```
+
+The [November 12 guide](in-class-notebooks/20261112/README.md) describes both notebooks, and the
+Quiz 3 handout on Blackboard walks through the quiz.
+
+## Variability
+
+The November 17 folder holds the class notebook on variability. Run it from the `20261117`
+directory with `pixi install`, then `pixi run class`. The
+[November 17 guide](in-class-notebooks/20261117/README.md) describes it.
 
 ## Single-machine instance generation
 

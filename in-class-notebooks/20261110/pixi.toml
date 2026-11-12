@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [tasks]
 stress-test = "marimo edit stress_test.py"
-quiz3 = "marimo edit variability_investigation.py"
+quiz4 = "marimo edit variability_investigation.py"
 check = "marimo check stress_test.py variability_investigation.py"
 
 [dependencies]

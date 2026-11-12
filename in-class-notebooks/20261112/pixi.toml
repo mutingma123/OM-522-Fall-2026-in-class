@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [tasks]
 class = "marimo edit capacity_littles_law.py"
-quiz4 = "marimo edit bottleneck_investigation.py"
+quiz3 = "marimo edit bottleneck_investigation.py"
 check = "marimo check capacity_littles_law.py bottleneck_investigation.py"
 
 [dependencies]
