@@ -30,9 +30,9 @@ def _(mo):
     | Your line as a function | A2 |
     | Check the build | A3 (must show 79.49) |
     | Seven versions of the line | Runs once A3 passes, in about 10 seconds |
-    | Where each station spends its time | B2, C2, C3, D3 |
-    | Jobs shipped per shift, compared with today | C1, D1 |
-    | The line as a whole | B3, D2, E1 |
+    | Stations table | B2, C2, C3, D3 |
+    | Gains table | C1, D1 |
+    | Line table | B3, D2, E1 |
     | Little's Law | E1, E2 (add your own cells there) |
 
     B1 uses Table 1 of the handout only, so it has no section here.
@@ -140,9 +140,9 @@ def _(SEED, flowsim, line):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Where each station spends its time
+    ## Stations table
 
-    Used in B2, C2, C3, and D3. Each row is one station in one version of the line. For a station
+    Where each station spends its time. Used in B2, C2, C3, and D3. Each row is one station in one version of the line. For a station
     with two machines, each column is the average over its two machines.
     """)
     return
@@ -179,9 +179,9 @@ def _(comparison, pl):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## Jobs shipped per shift, compared with today
+    ## Gains table
 
-    Used in C1 and D1. The `mean` column is the gain, i.e., the jobs per shift each change ships
+    Jobs shipped per shift by each change, compared with today. Used in C1 and D1. The `mean` column is the gain, i.e., the jobs per shift each change ships
     minus what today's line ships. The `lower` and `upper` columns are its 95% interval.
     """)
     return
@@ -205,9 +205,10 @@ def _(comparison):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    ## The line as a whole
+    ## Line table
 
-    Used in B3, D2, and E1. Each row is one version of the line, averaged over 100 shifts.
+    The line as a whole. Used in B3, D2, and E1. Each row is one version of the line, averaged over
+    100 shifts. The table is stored as `results`, which E1 uses.
     """)
     return
 
@@ -244,8 +245,9 @@ def _(mo):
     mo.md("""
     ## Little's Law (E1 and E2)
 
-    Add your cells for E1 and E2 below this one. Copy the code from the handout, and give each new
-    table its own name, since marimo does not allow two cells to define the same name.
+    Use the empty cell below for E1. For E2, add another cell (hover over a cell and click the +
+    button that appears beside it). Copy the code from the handout, and give each new table its own
+    name, since marimo does not allow two cells to define the same name.
     """)
     return
 
