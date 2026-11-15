@@ -50,7 +50,10 @@ def _(best_fit, pl):
     )
     fits = {"Release gap": best_fit(release_gaps)}
     for _station in ["Cut", "Weld", "Paint"]:
-        _minutes = processing.filter(pl.col("station") == _station)["minutes"].to_numpy()
+        _minutes = (
+            processing.filter(pl.col("station") == _station)["minutes"]
+            .to_numpy()
+        )
         fits[_station] = best_fit(_minutes)
 
     pl.DataFrame(
@@ -122,7 +125,8 @@ def _(mo):
 def _(compare, fits, gamma, line):
     weld_mean = fits["Weld"].mean
     weld_cv_halved = fits["Weld"].sd / weld_mean / 2
-    # A gamma with shape 1/cv² has coefficient of variation cv, and this scale keeps the mean.
+    # A gamma with shape 1/cv² has coefficient of variation cv,
+    # and this scale keeps the mean.
     steadier_weld = gamma(
         shape=1 / weld_cv_halved**2,
         scale=weld_mean * weld_cv_halved**2,

@@ -48,7 +48,8 @@ def _(pl):
             ).alias("jobs_per_hour"),
         )
         .with_columns(
-            (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60).alias("minutes_in_line"),
+            (pl.col("jobs_in_line") / pl.col("jobs_per_hour") * 60)
+            .alias("minutes_in_line"),
         )
     )
     fixed_wip
@@ -147,7 +148,8 @@ def _(pl, saturated_line):
                 pl.lit(_rack).alias("rack_size"),
                 pl.col("mean_wip").alias("jobs_in_line"),
                 (pl.col("throughput") * 60).alias("jobs_per_hour"),
-                (pl.col("mean_flow_time") - pl.col("mean_outside_wait")).alias("minutes_in_line"),
+                (pl.col("mean_flow_time") - pl.col("mean_outside_wait"))
+                .alias("minutes_in_line"),
             )
         )
         rack_rows.append(_summary)
