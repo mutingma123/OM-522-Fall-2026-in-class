@@ -1,4 +1,4 @@
-# OM 522: Operations Scheduling Problems
+# OM 522: Production Scheduling
 
 This repository contains in-class materials for **OM 522** at The University of Alabama during Fall
 2026. Materials are added throughout the semester. Blackboard is the authoritative source for the
