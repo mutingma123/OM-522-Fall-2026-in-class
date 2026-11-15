@@ -1,7 +1,8 @@
 # OM 522: Operations Scheduling Problems
 
-This repository contains in-class materials for **OM 522** at the
-University of Alabama during Fall 2026.
+This repository contains in-class materials for **OM 522** at The University of Alabama during Fall
+2026. Materials are added throughout the semester. Blackboard is the authoritative source for the
+syllabus, required materials, assignments, announcements, grades, and deadlines.
 
 ## Course information
 
@@ -9,27 +10,90 @@ University of Alabama during Fall 2026.
 - **Email:** freem028@ua.edu
 - **Meeting time:** Tuesdays and Thursdays, 9:30–10:45 a.m.
 - **Location:** Bidgood Hall 121
-- **Office hours:** Tuesdays and Thursdays, 11:00 a.m.–noon
+- **Office hours:** Tuesdays and Thursdays, 11 a.m.–noon
 
-## Course overview
+The course studies scheduling decisions in production, logistics, and service settings. We will
+connect production planning, detailed scheduling, operational uncertainty, and control while
+learning to formulate, implement, and evaluate exact and heuristic solution methods.
 
-The course studies scheduling decisions in production, logistics, and service
-settings. We will connect production planning, detailed scheduling, operational
-uncertainty, and control while learning to formulate, implement, and evaluate
-exact and heuristic solution methods.
+Topics include production planning, single-machine scheduling, routing, parallel-machine
+scheduling, project scheduling, job-shop scheduling, factory dynamics, and decision-making under
+uncertainty. Lecture notes are distributed through Blackboard.
 
-Topics include production planning, single-machine scheduling, routing,
-parallel-machine scheduling, project scheduling, job-shop scheduling, factory
-dynamics, and decision-making under uncertainty.
+## Set up the course environment
 
-## Repository contents
+1. Download and extract the repository.
+2. Open a terminal.
+3. Change into the repository root, i.e., the folder that contains `pixi.toml`. If the path
+   contains spaces, put the complete path in quotation marks.
+4. Run `pixi install`.
 
-The [September 22 agentic AI guide](in-class-notebooks/20260922/README.md)
-provides the slides, TSP recreation exercise, finished app, illustrated review
-report, and daily AI updates skill creation prompt. Lecture notes are
-distributed through Blackboard.
+Pixi reads `pixi.toml` and the committed `pixi.lock` file. It then creates a local environment for
+your operating system in `.pixi/`. The manifest (`pixi.toml`) lists the tools the project needs.
+The lock file records the resolved package versions.
 
-The repository includes dated course materials and reusable utilities:
+## Class sessions
+
+Each session from September 29 on has its own folder under `in-class-notebooks/` and its own
+environment. Run a session from its folder. For example, run these commands from the repository
+root for the November 17 session:
+
+```bash
+cd in-class-notebooks/20261117
+pixi install
+pixi run class
+```
+
+The table lists each folder and the tasks it defines. The topic links to that session's guide.
+
+| Date | Topic | Folder | Tasks |
+|---|---|---|---|
+| Aug. 25 | Dispatching rules | repository root | `lecture-20260825-edit`, `-check`, `-export` |
+| Sept. 8 | Dynamic critical-ratio dispatching | repository root | `lecture-20260908-edit`, `-check`, `-export` |
+| Sept. 22 | [Agentic AI](in-class-notebooks/20260922/README.md) | `20260922` | none |
+| Undated | [Traveling salesman problem (TSP)](in-class-notebooks/TSP/README.md) | `TSP` | `demo`, `check`, `test` |
+| Sept. 29 | [Clarke–Wright savings](in-class-notebooks/20260929/README.md) | `20260929` | `demo`, `test` |
+| Oct. 6 | [Parallel machines](in-class-notebooks/20261006/README.md) | `20261006` | `demo`, `test` |
+| Oct. 13 | [Eligible machines](in-class-notebooks/20261013/README.md) | `20261013` | `demo`, `test` |
+| Oct. 15 | [Critical path](in-class-notebooks/20261015/README.md) | `20261015` | `demo` |
+| Oct. 22 | [Distribution fitting](in-class-notebooks/20261022/README.md) | `20261022` | `demo` |
+| Nov. 3 | [FlowSim production line](in-class-notebooks/20261103/README.md) | `20261103` | `demo` |
+| Nov. 10 | [Stress test and Quiz 4](in-class-notebooks/20261110/README.md) | `20261110` | `stress-test`, `quiz4` |
+| Nov. 12 | [Capacity, Little's Law, and Quiz 3](in-class-notebooks/20261112/README.md) | `20261112` | `class`, `quiz3` |
+| Nov. 17 | [Variability](in-class-notebooks/20261117/README.md) | `20261117` | `class` |
+| Nov. 19 | [Push and limits](in-class-notebooks/20261119/README.md) | `20261119` | `class` |
+| Dec. 1 | [Where to spend the next dollar](in-class-notebooks/20261201/README.md) | `20261201` | `class` |
+
+### Notes on the sessions
+
+- The August 25 and September 8 tasks run from the repository root with the root environment. Use
+  `pixi run` followed by the task name.
+- Folders from November 3 on include a copy of FlowSim, so the root environment cannot run them.
+- Quiz 4 starts after the November 17 class. The Quiz 3 handout on Blackboard walks through Quiz 3.
+- Each `.py` file is the editable Marimo notebook. Each `.html` file is a static export that opens
+  in a browser without Python or Marimo.
+- The underlying programs also run directly (e.g., `pixi run marimo edit ...` or `pixi run jupyter
+  lab`). The named tasks preserve the correct dated paths.
+
+## Single-machine instance generation
+
+The reusable generator creates reproducible Parquet instances with processing times, release times,
+due dates, weights, and optional setup times. Its settings appear in one configuration block inside
+the script. The [instance-generation guide](sm-instance-generation/README.md) describes the
+settings, output schemas, setup modes, and reproducibility behavior.
+
+```bash
+pixi run sm-instance-generate
+```
+
+## Folder layout
+
+The data folder is a separate sibling of `in-class-notebooks/`, not a folder inside it. The August
+25 notebook was created directly inside `in-class-notebooks/` during class. Its published location
+adds the dated `20260825/` subfolder.
+
+<details>
+<summary>Show the full folder tree</summary>
 
 ```text
 OM-522-Fall-2026-in-class/
@@ -88,16 +152,14 @@ OM-522-Fall-2026-in-class/
 │   │   ├── capacity_littles_law.py
 │   │   ├── bottleneck_investigation.py
 │   │   ├── flowsim/
-│   │   ├── pixi.toml
-│   │   └── pixi.lock
+│   │   └── pixi.toml
 │   ├── 20261117/
 │   │   ├── README.md
 │   │   ├── variability.py
 │   │   ├── make_seed_data.py
 │   │   ├── data/
 │   │   ├── flowsim/
-│   │   ├── pixi.toml
-│   │   └── pixi.lock
+│   │   └── pixi.toml
 │   ├── 20261119/
 │   │   ├── README.md
 │   │   ├── push_and_limits.py
@@ -126,250 +188,4 @@ OM-522-Fall-2026-in-class/
 └── pixi.lock
 ```
 
-The August 25 notebook was created directly inside `in-class-notebooks/`
-during class. Its published location adds the dated `20260825/` subdirectory.
-The data directory is a separate sibling of `in-class-notebooks/`, not a folder
-inside it.
-
-The `.py` file is the editable Marimo notebook. The `.html` file is a static
-export that can be opened in a browser without Python or Marimo.
-
-## Set up the course environment
-
-Download and extract the repository, open a terminal, and change into the
-repository root, the directory containing `pixi.toml`. If the path contains
-spaces, put the complete path in quotation marks.
-
-```bash
-pixi install
-```
-
-Pixi reads `pixi.toml` and the committed `pixi.lock` file, then creates a local
-environment for the operating system in `.pixi/`. The manifest lists the tools
-the project needs; the lock file records the resolved package versions.
-
-## August 25 notebook commands
-
-Run these commands from the repository root:
-
-```bash
-# Open the notebook in the Marimo editor.
-pixi run lecture-20260825-edit
-
-# Check the notebook without changing it.
-pixi run lecture-20260825-check
-
-# Rebuild the static HTML summary.
-pixi run lecture-20260825-export
-```
-
-You can also use the underlying programs directly, for example
-`pixi run marimo edit ...` or `pixi run jupyter lab`. The named tasks above
-preserve the correct dated paths.
-
-## September 8 notebook commands
-
-The September 8 notebook implements the dynamic critical-ratio dispatching
-rule on the first generated single-machine instance. Run these commands from
-the repository root:
-
-```bash
-# Open the notebook in the Marimo editor.
-pixi run lecture-20260908-edit
-
-# Check the notebook without changing it.
-pixi run lecture-20260908-check
-
-# Rebuild the static HTML notebook.
-pixi run lecture-20260908-export
-```
-
-## Traveling salesman demo
-
-The traveling salesman problem (TSP) demo is a self-contained project with 439
-anonymized facility locations, a complete road-distance table, plotting
-utilities, and a Marimo notebook. Run its commands from the `TSP` directory:
-
-```bash
-cd in-class-notebooks/TSP
-pixi install
-pixi run demo
-pixi run check
-pixi run test
-```
-
-The [TSP guide](in-class-notebooks/TSP/README.md) describes the data and the
-general symmetric TSP represented by the instance.
-
-## Clarke–Wright savings demo
-
-The September 29 demo reuses the TSP store locations and road distances, adds
-simulated pallet demand and one hub store per state, and sets up a Marimo
-notebook for building the Clarke–Wright savings method in class. Run its
-commands from the `20260929` directory:
-
-```bash
-cd in-class-notebooks/20260929
-pixi install
-pixi run demo
-pixi run test
-```
-
-The [Clarke–Wright guide](in-class-notebooks/20260929/README.md) describes the
-simulated demand and the hub rule.
-
-## Parallel-machine demo
-
-The October 6 demo provides ten simulated nightly queues of model-training runs
-for identical GPU machines, schedule-checking and Gantt-chart helpers, and a
-Marimo notebook for building LPT construction and local improvement in class.
-Run its commands from the `20261006` directory:
-
-```bash
-cd in-class-notebooks/20261006
-pixi install
-pixi run demo
-pixi run test
-```
-
-The [parallel-machine guide](in-class-notebooks/20261006/README.md) describes
-the schedule format and the generated data.
-
-## Eligible-machines demo
-
-The October 13 demo extends the October 6 notebook to a mixed GPU fleet, in
-which a run may use only machines with enough memory and the older cards take
-twice as long. It provides ten simulated queues, an eligibility-aware checker,
-and a Marimo notebook that adapts the lower bounds, LPT, and the improvement
-moves. Its last step turns to a two-stage flow shop (prep, then training) and
-checks Johnson's rule against every order of five runs. Run its commands from
-the `20261013` directory:
-
-```bash
-cd in-class-notebooks/20261013
-pixi install
-pixi run demo
-pixi run test
-```
-
-The [eligible-machines guide](in-class-notebooks/20261013/README.md) describes
-the processing-time format and the generated data.
-
-## Critical path demo
-
-The October 15 demo schedules the launch of a new production cell with the
-critical path method. A Marimo notebook stores the seven-task project as a
-networkx graph, runs the forward and backward passes, and draws the network and
-a Gantt chart with each task's slack. Sliders change task durations, and a last
-section shows how a crew shared by two tasks lengthens the project. Run its
-commands from the `20261015` directory:
-
-```bash
-cd in-class-notebooks/20261015
-pixi install
-pixi run demo
-```
-
-The [critical path guide](in-class-notebooks/20261015/README.md) describes
-what each part of the notebook shows.
-
-## Distribution fitting demo
-
-The October 22 demo starts the simulation unit. It takes a file of historical
-observations, fits a normal distribution to it with SciPy, measures the fit
-with the Kolmogorov-Smirnov and Anderson-Darling statistics, and then fits and
-ranks every continuous distribution in SciPy. Run its commands from the
-`20261022` directory:
-
-```bash
-cd in-class-notebooks/20261022
-pixi install
-pixi run demo
-```
-
-The [distribution fitting guide](in-class-notebooks/20261022/README.md)
-describes the eight data files and what each part of the notebook shows.
-
-## FlowSim production line
-
-The November 3 demo builds a three-station production line (Cut, Weld, Paint)
-in FlowSim from ten days of shop data and compares rack sizes between the
-stations. The folder has its own environment and a copy of FlowSim, so the
-root environment cannot run it. Run its commands from the `20261103`
-directory:
-
-```bash
-cd in-class-notebooks/20261103
-pixi install
-pixi run demo
-```
-
-The [production line guide](in-class-notebooks/20261103/README.md) describes
-the data files and what each part of the notebook shows.
-
-## Stress test and Quiz 4
-
-The November 10 folder holds the stress test example that the final submission
-requires and the Quiz 4 notebook. Quiz 4 starts after the November 17 class. The
-folder also has its own environment and a copy of FlowSim. Run its commands from the `20261110` directory:
-
-```bash
-cd in-class-notebooks/20261110
-pixi install
-pixi run stress-test
-pixi run quiz4
-```
-
-The [November 10 guide](in-class-notebooks/20261110/README.md) describes both
-notebooks.
-
-## Capacity, Little's Law, and Quiz 3
-
-The November 12 folder holds the class notebook on capacity and Little's Law and the Quiz 3
-notebook. It has its own environment and a copy of FlowSim. Run its commands from the `20261112`
-directory:
-
-```bash
-cd in-class-notebooks/20261112
-pixi install
-pixi run class
-pixi run quiz3
-```
-
-The [November 12 guide](in-class-notebooks/20261112/README.md) describes both notebooks, and the
-Quiz 3 handout on Blackboard walks through the quiz.
-
-## Variability
-
-The November 17 folder holds the class notebook on variability. Run it from the `20261117`
-directory with `pixi install`, then `pixi run class`. The
-[November 17 guide](in-class-notebooks/20261117/README.md) describes it.
-
-## Push and limits
-
-The November 19 folder holds the class notebook that runs a three-station shop with and without a
-limit on work. Run it from the `20261119` directory with `pixi install`, then `pixi run class`.
-
-## Where to spend the next dollar
-
-The December 1 folder holds the class notebook that compares five ways to spend one budget on the
-November 3 line. Run it from the `20261201` directory with `pixi install`, then `pixi run class`.
-
-## Single-machine instance generation
-
-The reusable single-machine generator creates reproducible Parquet instances
-with processing times, release times, due dates, weights, and optional setup
-times. Its settings appear in one configuration block inside the script.
-
-```bash
-pixi run sm-instance-generate
-```
-
-The [instance-generation guide](sm-instance-generation/README.md) describes
-the settings, output schemas, setup modes, and reproducibility behavior.
-
-In-class examples, notebooks, data, and supporting files will continue to be
-added throughout the semester. Materials may change as the course progresses.
-
-Blackboard is the authoritative source for the syllabus, required materials,
-assignments, announcements, grades, and deadlines.
+</details>
