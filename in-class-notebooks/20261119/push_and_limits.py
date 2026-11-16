@@ -109,5 +109,31 @@ def _(pl, policies):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## How S2 spends the shift
+
+    S2 is the bottleneck, and a limit leaves it holding finished jobs it cannot pass on.
+    """)
+    return
+
+
+@app.cell
+def _(pl, policies):
+    (
+        policies.stations.filter(pl.col("station") == "S2")
+        .group_by("scenario", maintain_order=True)
+        .agg(pl.col("processing_utilization", "blocking_fraction").mean())
+        .select(
+            pl.col("scenario").alias("policy"),
+            pl.col("processing_utilization").alias("s2_working"),
+            pl.col("blocking_fraction").alias("s2_blocked"),
+        )
+        .with_columns(pl.exclude("policy").round(3))
+    )
+    return
+
+
 if __name__ == "__main__":
     app.run()
