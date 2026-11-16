@@ -19,7 +19,7 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
-    # November 12's line: stations of 4, 6, and 5 minutes
+    # A three-station line: 4, 6, and 5 minutes per job
     """)
     return
 
@@ -40,7 +40,7 @@ def _(pl):
     RAW_PROCESS_TIME = 15  # minutes, 4 + 6 + 5
 
     fixed_wip = (
-        pl.DataFrame({"jobs_in_line": [1, 2, 3, 4, 5, 6]})
+        pl.DataFrame({"jobs_in_line": [1.0, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0]})
         .with_columns(
             pl.min_horizontal(
                 pl.col("jobs_in_line") * 60 / RAW_PROCESS_TIME,
