@@ -153,7 +153,10 @@ def _(compare, fits, gamma, line):
 def _(options, pl):
     (
         options.summary.group_by("scenario", maintain_order=True)
-        .agg(pl.col("completed_at_close", "overtime", "mean_flow_time", "mean_wip").mean())
+        .agg(
+            pl.col("completed_at_close", "overtime").mean(),
+            pl.col("mean_flow_time", "mean_wip").mean(),
+        )
         .select(
             pl.col("scenario").alias("option"),
             pl.col("completed_at_close").alias("jobs_finished_in_shift"),
