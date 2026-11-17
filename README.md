@@ -87,6 +87,15 @@ settings, output schemas, setup modes, and reproducibility behavior.
 pixi run sm-instance-generate
 ```
 
+## Agent skills
+
+The `skills/` folder holds instructions that an AI coding agent can follow, e.g., Claude Code,
+Codex, or Antigravity. Each skill has its own guide.
+
+| Skill | What it makes | Guide |
+|---|---|---|
+| `project-video` | A short animated video of your project's method, as an MP4 and a click-through HTML deck | [Project video skill](skills/project-video/README.md) |
+
 ## Folder layout
 
 The data folder is a separate sibling of `in-class-notebooks/`, not a folder inside it. The August
@@ -185,6 +194,16 @@ OM-522-Fall-2026-in-class/
 ├── sm-instance-generation/
 │   ├── generate_instances.py
 │   └── README.md
+├── skills/
+│   └── project-video/
+│       ├── README.md
+│       ├── SKILL.md
+│       └── template/
+│           ├── render.py
+│           ├── video_helpers.py
+│           ├── spt-example/
+│           ├── pixi.toml
+│           └── pixi.lock
 ├── pixi.toml
 └── pixi.lock
 ```

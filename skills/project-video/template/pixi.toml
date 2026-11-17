@@ -1,0 +1,21 @@
+# The video environment. It is separate from your project's environment, so your project
+# does not carry Manim, Cairo, Pango, and ffmpeg.
+[workspace]
+channels = ["conda-forge"]
+name = "project-video"
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+render = "python render.py"
+
+[dependencies]
+python = ">=3.12,<3.14"
+manim = ">=0.22.0,<0.23"
+numpy = ">=2.5.4,<3"
+ffmpeg = ">=9.0.2,<10"
+pillow = ">=12.3.0,<13"
+polars = ">=2.0.0,<3"
+
+[pypi-dependencies]
+manim-slides = ">=5.7.0, <6"

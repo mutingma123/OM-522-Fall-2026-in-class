@@ -1,0 +1,6 @@
+.pixi/*
+!.pixi/config.toml
+__pycache__/
+*/build/
+*/output/
+media/
