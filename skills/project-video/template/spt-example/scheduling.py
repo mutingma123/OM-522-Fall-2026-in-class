@@ -1,4 +1,9 @@
-"""A small scheduling method. In your project, the video imports your own method code instead."""
+"""Shortest processing time first (SPT) for the sum of completion times on one machine.
+
+In your project, the video imports your own method code instead of this file.
+"""
+
+from itertools import permutations
 
 # Minutes of processing for each job, listed in the order the jobs arrived. Every job is
 # ready at minute 0.
@@ -14,16 +19,43 @@ def spt_order(jobs):
     return sorted(jobs, key=lambda job: jobs[job])
 
 
-def finish_times(order, jobs):
+def completion_times(order, jobs):
     """The minute each job finishes when the machine runs the jobs in this order."""
-    finished, clock = {}, 0
+    completed, clock = {}, 0
     for job in order:
         clock += jobs[job]
-        finished[job] = clock
-    return finished
+        completed[job] = clock
+    return completed
 
 
-def average_flow_time(order, jobs):
-    """Every job is ready at minute 0, so a job's flow time is its finish time."""
-    finished = finish_times(order, jobs)
-    return sum(finished.values()) / len(finished)
+def total_completion(order, jobs):
+    """The objective: the sum of the jobs' completion times."""
+    return sum(completion_times(order, jobs).values())
+
+
+def first_out_of_order(order, jobs):
+    """The position of the first longer job that sits right before a shorter one, or None."""
+    for position in range(len(order) - 1):
+        if jobs[order[position]] > jobs[order[position + 1]]:
+            return position
+    return None
+
+
+def swap(order, position):
+    """The order with the jobs at position and position + 1 traded."""
+    swapped = list(order)
+    swapped[position], swapped[position + 1] = swapped[position + 1], swapped[position]
+    return swapped
+
+
+def swaps_to_spt(order, jobs):
+    """Swap the first out-of-order pair until none is left. Returns every order along the way."""
+    orders = [list(order)]
+    while (position := first_out_of_order(orders[-1], jobs)) is not None:
+        orders.append(swap(orders[-1], position))
+    return orders
+
+
+def every_order(jobs):
+    """Each possible order of the jobs with its sum of completion times (brute force)."""
+    return {tuple(order): total_completion(order, jobs) for order in permutations(jobs)}

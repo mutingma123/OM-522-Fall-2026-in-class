@@ -13,8 +13,9 @@ Antigravity. [`SKILL.md`](SKILL.md) holds the agent's instructions. This page is
 
 ## Try the example first
 
-The example explains shortest processing time first (SPT) on four jobs. It takes under a
-minute to render.
+The example shows why shortest processing time first (SPT) gives the smallest sum of
+completion times on one machine. It works through a swap argument with four jobs, proves it
+in general, and then checks all 24 orders. It takes about a minute to render.
 
 1. Pull the in-class repository.
 2. Run these commands from the repository root.
@@ -26,7 +27,8 @@ minute to render.
    ```
 
 3. Open `spt-example/output/preview/deck/spt-example.html` in a browser. Press the right
-   arrow to step through it.
+   arrow to step through it. Press S to open the speaker view, which shows the current
+   slide, the next slide, and a clock. Allow pop-ups if the browser blocks the window.
 4. Open `spt-example/output/preview/spt-example.mp4` to watch the continuous version.
 5. Read `spt-example/scene.py`. The top half computes and checks every number. The bottom
    half draws the video.
@@ -41,6 +43,11 @@ repository] and follow it. Make a short video that explains [your method, e.g., 
 savings-based route builder] in my project at [path to your project]. Propose the plan
 and wait for my approval before you write any code.
 ```
+
+The agent will also offer two parts that help you check its work. One explains why the
+method works. The other compares the method with brute force or a known answer on a small
+case. Keep these parts when an agent wrote code you could not have written yourself. They show
+whether the code does what the method claims.
 
 Some agents also load skills from a folder in your project. For example, Claude Code reads
 `.claude/skills/project-video/SKILL.md`. Check your agent's documentation if you want to

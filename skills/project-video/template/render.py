@@ -11,7 +11,8 @@ the deck, which need every part.
 
 The video folder holds scene.py, which lists its parts in order in PARTS. The outputs go
 to <video folder>/output/<mode>/: <video folder>.mp4, deck/<video folder>.html, and
-stills/ (one image per click and one contact sheet per part).
+stills/ (one image per click and one contact sheet per part). In the deck, S opens a speaker
+view with the current slide, the next slide, and a clock.
 """
 
 import argparse
@@ -134,7 +135,18 @@ subprocess.run(
     [sys.executable, "-m", "manim_slides", "convert", "--folder", str(slides), "--to", "html", "--offline", *scenes, str(deck / f"{name}.html")],
     check=True,
 )
+
+# The speaker view. manim-slides loads reveal.js's notes plugin but never turns it on, so
+# register it. Pressing S in the deck then opens a window with the current slide, the next
+# slide, and a clock.
+page = deck / f"{name}.html"
+html = page.read_text(encoding="utf-8")
+init = "Reveal.initialize({"
+if html.count(init) != 1 or f"{name}_assets/notes.js" not in html:
+    sys.exit(f"{page} does not look like a manim-slides deck, so the speaker view was not added.")
+page.write_text(html.replace(init, f"{init}\n        plugins: [RevealNotes],"), encoding="utf-8")
+
 count = sum(len(json.loads((slides / f"{scene}.json").read_text())["slides"]) for scene in scenes)
 print(f"\nVideo: {out / f'{name}.mp4'}")
 print(f"Deck ({count} slides): {deck / f'{name}.html'}")
-print("Open the deck in a browser. The right arrow advances one click.")
+print("Open the deck in a browser. The right arrow advances one click, and S opens the speaker view.")

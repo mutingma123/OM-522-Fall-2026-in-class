@@ -15,12 +15,14 @@ The rules this module enforces:
 
 import json
 import os
+import re
 from pathlib import Path
 
 from manim import (
     DOWN,
     UP,
     WHITE,
+    Create,
     FadeIn,
     FadeOut,
     ManimColor,
@@ -94,21 +96,35 @@ def make_box(title, lines=(), color=MUTED, fill=None, width=None, height=None, s
     return VGroup(box, content)
 
 
+# A caption never breaks next to one of these, so "a = 6" stays on one line.
+OPERATORS = {"=", "+", "-", "\u2212", ">", "<", "\u00d7", "/"}
+
+
+def _words(text):
+    """Split a caption into words, keeping a parenthesis like "(2 min)," as one word."""
+    return re.findall(r"[^\s(]*\([^)]*\)\S*|\S+", text)
+
+
 def make_caption(text, size=CAPTION_SIZE, max_width=CAPTION_MAX_WIDTH):
-    """The caption at the top of the frame, on one line or two balanced lines. Raises
-    ValueError when two lines are not enough, so the caption must be shortened or split."""
+    """The caption at the top of the frame, on one line or two. A two-line caption breaks
+    between sentences when both lines fit, and otherwise at the most balanced point that
+    is not inside a parenthesis or next to an operator. Raises ValueError when two lines
+    are not enough, so the caption must be shortened or split."""
     one = label(text, size=size)
     if one.width <= max_width:
         return one.move_to([0, CAPTION_Y, 0])
-    words = text.split()
-    cut = min(
-        range(1, len(words)),
-        key=lambda k: abs(len(" ".join(words[:k])) - len(" ".join(words[k:]))),
-    )
-    two = text_block([" ".join(words[:cut]), " ".join(words[cut:])], size=size, buff=0.12)
-    if two.width > max_width:
-        raise ValueError(f"Caption too long for two lines, shorten or split it: {text!r}")
-    return two.move_to([0, CAPTION_Y - 0.2, 0])
+    words = _words(text)
+    cuts = [k for k in range(1, len(words)) if words[k - 1] not in OPERATORS and words[k] not in OPERATORS]
+
+    def balance(k):
+        return abs(len(" ".join(words[:k])) - len(" ".join(words[k:])))
+
+    sentence_cuts = sorted((k for k in cuts if words[k - 1].endswith((".", "?"))), key=balance)
+    for cut in sentence_cuts + sorted(cuts, key=balance):
+        two = text_block([" ".join(words[:cut]), " ".join(words[cut:])], size=size, buff=0.12)
+        if two.width <= max_width:
+            return two.move_to([0, CAPTION_Y - 0.2, 0])
+    raise ValueError(f"Caption too long for two lines, shorten or split it: {text!r}")
 
 
 class VideoScene(Slide):
@@ -149,6 +165,8 @@ class VideoScene(Slide):
         self.caption_since_click = False
         self.content_since_click = False
         self.helper_playing = False
+        # Outlines from emphasize() that fade with the current caption.
+        self.outlines = []
 
     def play(self, *animations, **kwargs):
         """Slow every animation by PACE, and in a check run, note a FadeOut that plays
@@ -203,11 +221,13 @@ class VideoScene(Slide):
         new.source_text = text
         if self.caption is not None and (self.caption_since_click or self.content_since_click):
             self.pause(f"before caption: {text[:30]}")
+        stale = [FadeOut(outline) for outline in self.outlines if outline in self.mobjects]
+        self.outlines = []
         self.helper_playing = True
         if self.caption is None:
-            self.play(FadeIn(new, shift=0.15 * DOWN), run_time=0.6)
+            self.play(FadeIn(new, shift=0.15 * DOWN), *stale, run_time=0.6)
         else:
-            self.play(FadeOut(self.caption, shift=0.15 * UP), FadeIn(new, shift=0.15 * UP), run_time=0.6)
+            self.play(FadeOut(self.caption, shift=0.15 * UP), FadeIn(new, shift=0.15 * UP), *stale, run_time=0.6)
         self.helper_playing = False
         self.caption = new
         self.caption_since_click = True
@@ -223,6 +243,23 @@ class VideoScene(Slide):
         self.helper_playing = True
         self.play(*(FadeOut(mob) for mob in others), run_time=0.6)
         self.helper_playing = False
+
+    def emphasize(self, mob, color=INK, buff=0.08, keep=False):
+        """Draw an outline around an object to point at it. The outline fades with the next
+        caption, unless keep is True. Outline the shapes only, not the labels under them, or
+        the outline's edge crosses the labels."""
+        outline = RoundedRectangle(
+            corner_radius=0.12,
+            width=mob.width + 2 * buff,
+            height=mob.height + 2 * buff,
+            stroke_color=color,
+            stroke_width=4,
+            fill_opacity=0,
+        ).move_to(mob)
+        self.play(Create(outline), run_time=0.6)
+        if not keep:
+            self.outlines.append(outline)
+        return outline
 
     def title_card(self, title):
         """Open the part with its title, which fades on its own before the first caption."""

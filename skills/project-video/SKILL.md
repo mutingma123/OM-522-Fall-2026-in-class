@@ -11,11 +11,13 @@ video is silent, so captions carry the words and the animation carries the idea.
 
 - a continuous MP4 that plays on its own, and
 - an HTML deck that stops at every `pause()` until the presenter presses the right arrow.
+  Pressing S opens a speaker view with the current slide, the next slide, and a clock.
 
 This skill's `template/` folder has everything the video needs. It holds its own environment
 (`pixi.toml`), the render script (`render.py`), the drawing helpers (`video_helpers.py`), and a
 finished example (`spt-example/`). Read `template/spt-example/scene.py` before you write a
-scene. It shows every rule below in about 130 lines.
+scene. It shows every rule below, and its last four parts explain why the method works and
+check it on every possible order.
 
 ## Rules
 
@@ -51,8 +53,19 @@ scene. It shows every rule below in about 130 lines.
    parts). Each row gives the scene class name (`Part1Setup`), the title, what the part shows,
    every number it displays and the code that produces it, and where the clicks fall. Then
    list every term a classmate may not know, with its one-clause definition and the part
-   where it first appears. Ask the student to approve or change the plan. Write no scene code
-   until they approve.
+   where it first appears.
+
+   Also propose two parts that help the student check the method, not only present it. The
+   student can decline either one.
+   - **Why it works.** If the method has a known argument (an exchange argument, a bound, an
+     invariant), walk through it with the instance's own numbers, then state it in general.
+     If no argument is known, show the step that makes the method's choice and why it is
+     reasonable.
+   - **Checking it.** Compare the method's result on the small instance with brute force, a
+     solver, or a known answer, and show where the method lands.
+
+   The example does both (Parts 3 to 6). Ask the student to approve or change the plan. Write
+   no scene code until they approve.
 3. **Set up the folder.** If the project has no `video/` folder, copy this skill's
    `template/` folder into the project root as `video/`. Then run `pixi install` in `video/`.
    Create `video/<video name>/scene.py` for the new video (e.g., `video/route-builder/`).
@@ -94,6 +107,7 @@ scene. It shows every rule below in about 130 lines.
 | `self.say(text)` | Shows a caption at the top. It waits for a click first if anything has played since the last click. |
 | `self.pause(name)` | Holds the picture briefly for the MP4, then ends the slide (one click). The name labels the still. |
 | `self.clear_stage()` | Fades out everything but the caption, after a click if needed. |
+| `self.emphasize(mob)` | Draws an outline around shapes to point at them. It fades with the next caption. Outline shapes, not the labels under them. |
 | `label(text, size, color)` | One line of text. |
 | `text_block(lines, size, color)` | Several centered lines. |
 | `make_box(title, lines, color, fill, width)` | A rounded box with a title and lines under it. |
@@ -106,9 +120,9 @@ skips the joined MP4 and the deck.
 
 | Command | What it does | Time for the example |
 |---|---|---|
-| `pixi run render <video name> check` | Runs every scene without rendering and lists layout and click problems | about 10 seconds |
-| `pixi run render <video name> preview` | Renders 720p video, stills, the MP4, and the deck | about 10 seconds |
-| `pixi run render <video name> final` | Renders 1080p video, stills, the MP4, and the deck | under a minute |
+| `pixi run render <video name> check` | Runs every scene without rendering and lists layout and click problems | about 35 seconds |
+| `pixi run render <video name> preview` | Renders 720p video, stills, the MP4, and the deck | about 35 seconds |
+| `pixi run render <video name> final` | Renders 1080p video, stills, the MP4, and the deck | about 70 seconds |
 
 ## Common problems
 
