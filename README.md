@@ -58,9 +58,9 @@ The table lists each folder and the tasks it defines. The topic links to that se
 | Oct. 15 | [Critical path](in-class-notebooks/20261015/README.md) | `20261015` | `demo` |
 | Oct. 22 | [Distribution fitting](in-class-notebooks/20261022/README.md) | `20261022` | `demo` |
 | Nov. 3 | [FlowSim production line](in-class-notebooks/20261103/README.md) | `20261103` | `demo` |
-| Nov. 10 | [Stress test and Quiz 4](in-class-notebooks/20261110/README.md) | `20261110` | `stress-test`, `quiz4` |
+| Nov. 10 | [Stress test](in-class-notebooks/20261110/README.md) | `20261110` | `stress-test` |
 | Nov. 12 | [Capacity, Little's Law, and Quiz 3](in-class-notebooks/20261112/README.md) | `20261112` | `class`, `quiz3` |
-| Nov. 17 | [Variability](in-class-notebooks/20261117/README.md) | `20261117` | `class` |
+| Nov. 17 | [Variability and Quiz 4](in-class-notebooks/20261117/README.md) | `20261117` | `class`, `quiz4` |
 | Nov. 19 | [Push and limits](in-class-notebooks/20261119/README.md) | `20261119` | `class` |
 | Dec. 1 | [Where to spend the next dollar](in-class-notebooks/20261201/README.md) | `20261201` | `class` |
 
@@ -69,7 +69,8 @@ The table lists each folder and the tasks it defines. The topic links to that se
 - The August 25 and September 8 tasks run from the repository root with the root environment. Use
   `pixi run` followed by the task name.
 - Folders from November 3 on include a copy of FlowSim, so the root environment cannot run them.
-- Quiz 4 starts after the November 17 class. The Quiz 3 handout on Blackboard walks through Quiz 3.
+- Quiz 3 runs in the November 12 folder with `pixi run quiz3`. Quiz 4 runs in the November 17
+  folder with `pixi run quiz4`. Each quiz's handout on Blackboard walks through it.
 - Each `.py` file is the editable Marimo notebook. Each `.html` file is a static export that opens
   in a browser without Python or Marimo.
 - The underlying programs also run directly (e.g., `pixi run marimo edit ...` or `pixi run jupyter
@@ -143,7 +144,6 @@ OM-522-Fall-2026-in-class/
 │   ├── 20261110/
 │   │   ├── README.md
 │   │   ├── stress_test.py
-│   │   ├── variability_investigation.py
 │   │   ├── flowsim/
 │   │   ├── pixi.toml
 │   │   └── pixi.lock
@@ -156,6 +156,7 @@ OM-522-Fall-2026-in-class/
 │   ├── 20261117/
 │   │   ├── README.md
 │   │   ├── variability.py
+│   │   ├── variability_investigation.py
 │   │   ├── make_seed_data.py
 │   │   ├── data/
 │   │   ├── flowsim/

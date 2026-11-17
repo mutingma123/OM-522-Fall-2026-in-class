@@ -1,6 +1,6 @@
 """Run the Quiz 4 cases for 30 seeds and save them to data/variability-seeds.csv.
 
-The model and measurement are copied from ../20261110/variability_investigation.py, so each seed's
+The model and measurement are copied from variability_investigation.py (the Quiz 4 notebook), so each seed's
 rows match what a student with that seed would get from Quiz 4. Run from this folder:
 
     pixi run python make_seed_data.py

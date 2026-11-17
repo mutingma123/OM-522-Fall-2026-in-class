@@ -6,7 +6,8 @@ version = "0.1.0"
 
 [tasks]
 class = "marimo edit variability.py"
-check = "marimo check variability.py"
+quiz4 = "marimo edit variability_investigation.py"
+check = "marimo check variability.py variability_investigation.py"
 
 [dependencies]
 python = ">=3.12,<3.14"
