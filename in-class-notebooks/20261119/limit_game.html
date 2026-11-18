@@ -83,15 +83,36 @@ summary { cursor: pointer; font-weight: 600; color: var(--crimson); }
 <main>
 
 <section>
+<h2>The line</h2>
+<p>Every order visits S1, then S2, then S3. Orders wait in the backlog until they are released into the shop.</p>
+<svg id="line" viewBox="0 0 1000 150" role="img" aria-label="Orders arrive, wait in the backlog, are released into the shop, and pass S1, a rack, S2, a rack, and S3 before they finish"></svg>
+<div class="table-wrap" tabindex="0">
+<table>
+  <thead><tr><th>Station</th><th>Average minutes per job</th><th>Capacity per hour</th><th>Load</th></tr></thead>
+  <tbody>
+    <tr><td>S1</td><td>4</td><td>60 ÷ 4 = 15.0</td><td>8 ÷ 15 = 53%</td></tr>
+    <tr class="best"><td>S2 (bottleneck)</td><td>6</td><td>60 ÷ 6 = 10.0</td><td>8 ÷ 10 = 80%</td></tr>
+    <tr><td>S3</td><td>5</td><td>60 ÷ 5 = 12.0</td><td>8 ÷ 12 = 67%</td></tr>
+  </tbody>
+</table>
+</div>
+<ul>
+  <li>Orders arrive about every 7.5 minutes, so 60 ÷ 7.5 = 8 orders per hour.</li>
+  <li>Load is orders per hour ÷ capacity. S2 has the lowest capacity, so it is the bottleneck.</li>
+  <li>The gaps between orders and the processing times are random (exponential).</li>
+  <li>A rack is the waiting space in front of a station. When the rack after a station is full, that station is blocked. It holds its finished job and cannot start the next one.</li>
+  <li>Under push, the racks have no limit, so no station is ever blocked.</li>
+  <li>Orders stop arriving after 8 hours, and the rest finish in overtime.</li>
+</ul>
+</section>
+
+<section>
 <h2>Your task</h2>
 <p class="target">Your plant manager wants <strong>minutes in the shop at 30 or less</strong>. Find the plan that meets this target with the <strong>fewest minutes from order</strong>.</p>
 <ul>
-  <li>Orders arrive about every 7.5 minutes. S1, S2, and S3 take 4, 6, and 5 minutes on average.</li>
-  <li>The gaps between orders and the processing times are random (exponential). S2 is the bottleneck.</li>
   <li><b>Minutes in the backlog</b> run from the order's arrival to its release into the shop.</li>
   <li><b>Minutes in the shop</b> run from release to finish.</li>
   <li><b>Minutes from order</b> run from arrival to finish. This is the time the customer feels.</li>
-  <li>Orders stop arriving after 8 hours, and the rest finish in overtime.</li>
 </ul>
 </section>
 
@@ -465,6 +486,47 @@ document.getElementById("time").addEventListener("input", (e) => {
   player.t = Math.min(t, player.end); drawScene();
 });
 
+// The static overview at the top: backlog, the shop's three stations and two racks, finished.
+function drawLine() {
+  const svg = document.getElementById("line");
+  const arrow = (x1, x2, y) => {
+    svg.append(el("line", { x1, x2: x2 - 8, y1: y, y2: y, stroke: C.ink, "stroke-width": 2 }));
+    svg.append(el("path", { d: `M${x2 - 9} ${y - 5} L${x2} ${y} L${x2 - 9} ${y + 5} Z`, fill: C.ink }));
+  };
+  const y = 70;
+  svg.append(el("text", { x: 4, y: y - 10, "font-size": 15 }, "Orders"));
+  svg.append(el("text", { x: 4, y: y + 10, "font-size": 13, fill: C.pach }, "every 7.5 min"));
+  arrow(92, 120, y);
+  svg.append(el("rect", { x: 120, y: y - 32, width: 110, height: 64, fill: "#fff", stroke: C.ink }));
+  svg.append(el("text", { x: 175, y: y + 5, "text-anchor": "middle", "font-size": 16, "font-weight": 600 }, "Backlog"));
+  svg.append(el("rect", { x: 262, y: 8, width: 600, height: 124, fill: "none", stroke: C.gray, "stroke-dasharray": "5 4" }));
+  svg.append(el("text", { x: 562, y: 26, "text-anchor": "middle", "font-size": 14 }, "The shop"));
+  arrow(230, 280, y);
+  svg.append(el("text", { x: 255, y: y + 52, "text-anchor": "middle", "font-size": 13 }, "release"));
+  const items = [
+    { x: 280, w: 84, name: "S1", sub: "4 min" },
+    { x: 392, w: 70, rack: true },
+    { x: 490, w: 84, name: "S2", sub: "6 min", bottleneck: true },
+    { x: 602, w: 70, rack: true },
+    { x: 700, w: 84, name: "S3", sub: "5 min" },
+  ];
+  for (const [i, it] of items.entries()) {
+    if (it.rack) {
+      svg.append(el("rect", { x: it.x, y: y - 14, width: it.w, height: 28, fill: "#fff", stroke: C.ink, "stroke-dasharray": "3 3" }));
+      svg.append(el("text", { x: it.x + it.w / 2, y: y + 5, "text-anchor": "middle", "font-size": 14 }, "Rack"));
+    } else {
+      svg.append(el("rect", { x: it.x, y: y - 30, width: it.w, height: 60, rx: 6, fill: it.bottleneck ? C.ivory : "#fff", stroke: C.ink, "stroke-width": it.bottleneck ? 3 : 1.5 }));
+      svg.append(el("text", { x: it.x + it.w / 2, y: y - 4, "text-anchor": "middle", "font-size": 18, "font-weight": 600 }, it.name));
+      svg.append(el("text", { x: it.x + it.w / 2, y: y + 18, "text-anchor": "middle", "font-size": 14 }, it.sub));
+      if (it.bottleneck) svg.append(el("text", { x: it.x + it.w / 2, y: y + 50, "text-anchor": "middle", "font-size": 13, "font-weight": 600, fill: C.crimson }, "bottleneck"));
+    }
+    const next = items[i + 1];
+    arrow(it.x + it.w, next ? next.x : 900, y);
+  }
+  svg.append(el("text", { x: 905, y: y + 5, "font-size": 16, "font-weight": 600 }, "Finished"));
+}
+
+drawLine();
 syncControls();
 renderPlans();
 drawScene();
