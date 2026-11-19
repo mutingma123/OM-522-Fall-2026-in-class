@@ -6,7 +6,8 @@ with nothing else installed.
 | Notebook | Open it with | What it is |
 |---|---|---|
 | `capacity_littles_law.py` | `pixi run class` | A 4, 6, and 5 minute line released faster than it can work, and Little's Law |
-| `bottleneck_investigation.py` | `pixi run quiz3` | The notebook for Quiz 3 (see the handout on Blackboard) |
+| `bottleneck_investigation.py` | `pixi run quiz3` | The notebook for Quiz 3 |
+| `quiz-03-bottleneck-investigation.pdf` | Double-click it | The Quiz 3 handout, the same one as on Blackboard |
 
 Run `pixi install` once, from this folder, before the first command.
 

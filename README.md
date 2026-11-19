@@ -70,7 +70,8 @@ The table lists each folder and the tasks it defines. The topic links to that se
   `pixi run` followed by the task name.
 - Folders from November 3 on include a copy of FlowSim, so the root environment cannot run them.
 - Quiz 3 runs in the November 12 folder with `pixi run quiz3`. Quiz 4 runs in the November 17
-  folder with `pixi run quiz4`. Each quiz's handout on Blackboard walks through it.
+  folder with `pixi run quiz4`. Each quiz's handout is in its folder as a PDF, the same one as on
+  Blackboard.
 - Each `.py` file is the editable Marimo notebook. Each `.html` file is a static export that opens
   in a browser without Python or Marimo.
 - The underlying programs also run directly (e.g., `pixi run marimo edit ...` or `pixi run jupyter
