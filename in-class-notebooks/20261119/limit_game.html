@@ -139,35 +139,9 @@ summary { cursor: pointer; font-weight: 600; color: var(--crimson); }
 </div>
 <p id="capline" class="cap"></p>
 <div class="actions">
-  <button class="main" id="run100">Run 100 shifts</button>
-  <button class="second" id="watch">Watch one shift</button>
+  <button class="main" id="watch">Watch one shift</button>
+  <button class="second" id="run100">Run 100 shifts</button>
 </div>
-</section>
-
-<section>
-<h2>Your plans</h2>
-<p id="best">None of your plans has run yet. Choose a plan and press "Run 100 shifts".</p>
-<div class="table-wrap" tabindex="0">
-<table>
-  <thead><tr>
-    <th>Plan</th><th>Jobs in shop</th><th>Minutes in backlog</th><th>Minutes in shop</th>
-    <th>Minutes from order</th><th>Jobs finished in shift</th><th>Overtime minutes</th><th>S2 blocked</th><th>Meets target</th>
-  </tr></thead>
-  <tbody id="rows"></tbody>
-</table>
-</div>
-<ul class="note">
-  <li>Each number is the average over the 100 shifts.</li>
-  <li>Jobs in shop and S2 blocked cover the 8 hours of each shift. Jobs in shop leaves out the backlog.</li>
-  <li>Minutes follow each order to its finish, overtime included.</li>
-  <li>Backlog minutes plus shop minutes can differ from minutes from order by 0.1, from rounding.</li>
-</ul>
-<svg id="chart" viewBox="0 0 760 430" role="img" aria-label="Your plans: minutes in the shop against minutes from order"></svg>
-<details>
-  <summary>Show every plan</summary>
-  <p>This adds all 37 plans to the table and the chart.</p>
-  <button class="second" id="all">Add every plan</button>
-</details>
 </section>
 
 <section id="shift">
@@ -194,6 +168,32 @@ summary { cursor: pointer; font-weight: 600; color: var(--crimson); }
 </div>
 <p id="shiftresult"></p>
 <p class="note">One shift is noisy. The plans table uses all 100 shifts.</p>
+</section>
+
+<section>
+<h2>Your plans</h2>
+<p id="best">None of your plans has run yet. Choose a plan and press "Run 100 shifts".</p>
+<div class="table-wrap" tabindex="0">
+<table>
+  <thead><tr>
+    <th>Plan</th><th>Jobs in shop</th><th>Minutes in backlog</th><th>Minutes in shop</th>
+    <th>Minutes from order</th><th>Jobs finished in shift</th><th>Overtime minutes</th><th>S2 blocked</th><th>Meets target</th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+</div>
+<ul class="note">
+  <li>Each number is the average over the 100 shifts.</li>
+  <li>Jobs in shop and S2 blocked cover the 8 hours of each shift. Jobs in shop leaves out the backlog.</li>
+  <li>Minutes follow each order to its finish, overtime included.</li>
+  <li>Backlog minutes plus shop minutes can differ from minutes from order by 0.1, from rounding.</li>
+</ul>
+<svg id="chart" viewBox="0 0 760 430" role="img" aria-label="Your plans: minutes in the shop against minutes from order"></svg>
+<details>
+  <summary>Show every plan</summary>
+  <p>This adds all 37 plans to the table and the chart.</p>
+  <button class="second" id="all">Add every plan</button>
+</details>
 </section>
 
 </main>
